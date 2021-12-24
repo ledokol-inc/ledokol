@@ -10,8 +10,9 @@ import (
 )
 
 type ConsumerWrapper struct {
-	consumer *kafka.Reader
-	messages *sync.Map
+	consumer    *kafka.Reader
+	messages    *sync.Map
+	messagesAge *sync.Map
 }
 
 func NewConsumer() *ConsumerWrapper {
@@ -19,7 +20,7 @@ func NewConsumer() *ConsumerWrapper {
 		Brokers: address,
 		GroupID: consumerGroupID,
 		Topic:   consumeTopic,
-	}), messages: new(sync.Map)}
+	}), messages: new(sync.Map), messagesAge: new(sync.Map)}
 }
 
 func (consumerWrapper *ConsumerWrapper) ProcessConsume() {
@@ -27,16 +28,23 @@ func (consumerWrapper *ConsumerWrapper) ProcessConsume() {
 		message, err := consumerWrapper.consumer.ReadMessage(context.Background())
 		if err != nil {
 			fmt.Println("Произошла ошибка при чтении")
+			break
 		}
-		consumerWrapper.messages.Store(string(messageIdPattern.FindSubmatch(message.Value)[1]), string(message.Value))
-		/*fmt.Printf("message at topic/partition/offset %v/%v/%v: %s = %s\n", message.Topic, message.Partition,
-		message.Offset, string(message.Key), string(message.Value))*/
+		messageIds := messageIdPattern.FindSubmatch(message.Value)
+		if len(messageIds) < 2 {
+			fmt.Println("Получено сообщение без messageID")
+			continue
+		}
+		consumerWrapper.messages.Store(string(messageIds[1]), string(message.Value))
+		consumerWrapper.messagesAge.Store(string(messageIds[1]), time.Now().Second())
 	}
 }
 
 func (consumerWrapper *ConsumerWrapper) Close() {
 	if err := consumerWrapper.consumer.Close(); err != nil {
 		log.Fatal("failed to close reader:", err)
+	} else {
+		fmt.Println("Закрыли консумер")
 	}
 }
 
@@ -50,4 +58,17 @@ func (consumerWrapper *ConsumerWrapper) WaitForMessage(messageId string, timeout
 		time.Sleep(100 * time.Millisecond)
 	}
 	return ""
+}
+
+func (consumerWrapper *ConsumerWrapper) DeleteOldMessages(timeout int) {
+	for {
+		currentTime := time.Now().Second()
+		consumerWrapper.messagesAge.Range(func(key, value interface{}) bool {
+			if currentTime-value.(int) > timeout {
+				consumerWrapper.messagesAge.Delete(key)
+			}
+			return true
+		})
+		time.Sleep(time.Duration(timeout) * time.Second)
+	}
 }

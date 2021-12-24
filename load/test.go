@@ -19,27 +19,42 @@ func NewTest() *Test {
 	scenarios, err := InitScenariosFromConfig("res/scenarios.json")
 
 	if err != nil {
-		fmt.Printf("Файл конфигурации не найден")
+		fmt.Println("Файл конфигурации не найден")
 		panic(err)
 	}
 	return &Test{
-		pacing:        100e3,
+		pacing:        60e3,
 		consumer:      kafkah.NewConsumer(),
 		scenarios:     scenarios,
-		usersCount:    10,
-		totalDuration: 600,
+		usersCount:    2,
+		totalDuration: 1200,
 	}
 }
 
 func (test *Test) Run() {
 	go test.consumer.ProcessConsume()
+	go test.consumer.DeleteOldMessages(10)
 
 	startTime := time.Now().Unix()
-	for i := 0; i < test.usersCount; i++ {
+	//test.StartUsers(test.usersCount, startTime)
+	go test.StartUsersContinually(600, 10, 1, startTime)
+	time.Sleep(time.Duration(test.totalDuration) * time.Second)
+	test.consumer.Close()
+}
+
+func (test *Test) StartUsersContinually(totalCount int, countByPeriod int, period int, testStartTime int64) {
+	for i := 0; i < totalCount; i += countByPeriod {
+		test.StartUsers(countByPeriod, testStartTime)
+		time.Sleep(time.Duration(period) * time.Second)
+	}
+}
+
+func (test *Test) StartUsers(count int, testStartTime int64) {
+	for i := 0; i < count; i++ {
 		go func() {
 			producer := kafkah.NewProducer()
 			rand.Seed(time.Now().UnixNano())
-			for time.Now().Unix()-startTime < test.totalDuration {
+			for time.Now().Unix()-testStartTime < test.totalDuration {
 				timeBeforeTest := time.Now().UnixMilli()
 				scenarioNumber := rand.Intn(len(test.scenarios))
 				test.scenarios[scenarioNumber].Process(producer, test.consumer)
@@ -48,7 +63,7 @@ func (test *Test) Run() {
 					time.Sleep(time.Duration(test.pacing-timeAfterTest+timeBeforeTest) * time.Millisecond)
 				}
 			}
+			producer.Close()
 		}()
 	}
-	time.Sleep(time.Duration(test.totalDuration) * time.Second)
 }

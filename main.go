@@ -1,8 +1,12 @@
 package main
 
-import "ledokol/load"
+import (
+	"ledokol/load"
+	"runtime"
+)
 
 func main() {
+	runtime.GOMAXPROCS(4)
 	test := load.NewTest()
 
 	test.Run()

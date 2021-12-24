@@ -2,6 +2,7 @@ package kafkah
 
 import (
 	"context"
+	"fmt"
 	"github.com/segmentio/kafka-go"
 	"log"
 )
@@ -34,5 +35,7 @@ func (producerWrapper *ProducerWrapper) SendMessage(message []byte) {
 func (producerWrapper *ProducerWrapper) Close() {
 	if err := producerWrapper.producer.Close(); err != nil {
 		log.Fatal("failed to close writer:", err)
+	} else {
+		fmt.Println("Закрыли продюсер")
 	}
 }
