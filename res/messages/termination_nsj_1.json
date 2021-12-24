@@ -1,0 +1,479 @@
+{
+  "messageId": 124770668,
+  "sessionId": "c3d4dcf2-7192-3c3d-8bbe-ba631aa16524",
+  "messageName": "MESSAGE_TO_SKILL",
+  "payload": {
+    "intent": "termination_nsj",
+    "original_intent": "termination_nsj",
+    "intent_meta": {},
+    "message": {
+      "original_text": "расторгнуть нсж",
+      "normalized_text": "расторгнуть нсж .",
+      "tokenized_elements_list": [
+        {
+          "text": "расторгнуть",
+          "raw_text": "расторгнуть",
+          "grammem_info": {
+            "aspect": "perf",
+            "transitivity": "tran",
+            "verbform": "inf",
+            "raw_gram_info": "aspect=perf|transitivity=tran|verbform=inf",
+            "part_of_speech": "VERB"
+          },
+          "lemma": "расторгнуть",
+          "is_stop_word": false,
+          "list_of_dependents": [
+            2
+          ],
+          "dependency_type": "root",
+          "head": 0
+        },
+        {
+          "text": "нсж",
+          "raw_text": "нсж",
+          "grammem_info": {
+            "degree": "pos",
+            "raw_gram_info": "degree=pos",
+            "part_of_speech": "ADV"
+          },
+          "lemma": "нсж",
+          "is_stop_word": false,
+          "list_of_dependents": [],
+          "dependency_type": "advmod",
+          "head": 1
+        },
+        {
+          "raw_text": ".",
+          "text": ".",
+          "lemma": ".",
+          "token_type": "SENTENCE_ENDPOINT_TOKEN",
+          "token_value": {
+            "value": "."
+          },
+          "list_of_token_types_data": [
+            {
+              "token_type": "SENTENCE_ENDPOINT_TOKEN",
+              "token_value": {
+                "value": "."
+              }
+            }
+          ]
+        }
+      ],
+      "entities": {},
+      "original_message_name": "VOICE_FROM_USER",
+      "human_normalized_text": "расторгнуть нсж",
+      "asr_normalized_message": "Расторгнуть нсж",
+      "human_normalized_text_with_anaphora": "расторгнуть нсж"
+    },
+    "annotations": {
+      "censor_data": {
+        "classes": [
+          "politicians",
+          "obscene",
+          "model_response"
+        ],
+        "probas": [
+          0,
+          0,
+          0.061500728130340576
+        ]
+      },
+      "text_sentiment": {
+        "classes": [
+          "negative",
+          "positive",
+          "neutral"
+        ],
+        "probas": [
+          0.15708181262016296,
+          0.003394896164536476,
+          0.8395232558250427
+        ]
+      },
+      "asr_sentiment": {
+        "classes": [
+          "positive",
+          "neutral",
+          "negative"
+        ],
+        "probas": [
+          0.017126769,
+          0.87064964,
+          0.11222363
+        ]
+      },
+      "ner_prediction": [
+        {
+          "raw_text": "расторгнуть",
+          "lemma": "расторгнуть",
+          "normalized_token": null,
+          "ner_labels": {
+            "food": "O",
+            "main": "O",
+            "music": "O",
+            "odqa": "O",
+            "video": "O"
+          },
+          "ner_label_probas": {
+            "food": "0.9997212",
+            "main": "0.75570446",
+            "music": "0.99598724",
+            "odqa": "0.7274889",
+            "video": "0.99612194"
+          }
+        },
+        {
+          "raw_text": "нсж",
+          "lemma": "нсж",
+          "normalized_token": null,
+          "ner_labels": {
+            "food": "O",
+            "main": "O",
+            "music": "O",
+            "odqa": "O",
+            "video": "O"
+          },
+          "ner_label_probas": {
+            "food": "0.999881",
+            "main": "0.8379824",
+            "music": "0.96457946",
+            "odqa": "0.8919014",
+            "video": "0.9984653"
+          }
+        }
+      ],
+      "normalized_entities": {
+        "main": {}
+      }
+    },
+    "smartBio": {},
+    "new_session": true,
+    "selected_item": {},
+    "contentProvider": {},
+    "character": {
+      "id": "sber",
+      "name": "Сбер",
+      "gender": "male",
+      "appeal": "official"
+    },
+    "inner_entities": {
+      "FOOD_STOPWORDS_TOKEN": [
+        {
+          "ner": "расторгнуть",
+          "norm": "расторгнуть",
+          "distance": 0.0
+        },
+        {
+          "ner": "нсж",
+          "norm": "нсж",
+          "distance": 0.0
+        }
+      ],
+      "MUSIC_STOPWORDS_TOKEN": [
+        {
+          "ner": "расторгнуть",
+          "norm": "расторгнуть",
+          "distance": 0.0
+        },
+        {
+          "ner": "нсж",
+          "norm": "нсж",
+          "distance": 0.0
+        }
+      ],
+      "VIDEO_STOPWORDS_TOKEN": [
+        {
+          "ner": "расторгнуть",
+          "norm": "расторгнуть",
+          "distance": 0.0
+        },
+        {
+          "ner": "нсж",
+          "norm": "нсж",
+          "distance": 0.0
+        }
+      ],
+      "WIKI_STOPWORDS_TOKEN": [
+        {
+          "ner": "расторгнуть",
+          "norm": "расторгнуть",
+          "distance": 0.0
+        },
+        {
+          "ner": "нсж",
+          "norm": "нсж",
+          "distance": 0.0
+        }
+      ]
+    },
+    "epkId": "***",
+    "asr": {
+      "hypotheses": [
+        {
+          "words": "расторгнуть нсж",
+          "normalizedText": "Расторгнуть нсж",
+          "extendedWords": [
+            {
+              "tokenType": 1,
+              "token": "***"
+            },
+            {
+              "tokenType": 1,
+              "token": "***"
+            }
+          ]
+        },
+        {
+          "words": "расторгнуть нцж",
+          "normalizedText": "расторгнуть нцж"
+        },
+        {
+          "words": "расторгнуть сж",
+          "normalizedText": "расторгнуть сж"
+        }
+      ],
+      "sentiment": {
+        "classes": [
+          "positive",
+          "neutral",
+          "negative"
+        ],
+        "probas": [
+          0.017126769,
+          0.87064964,
+          0.11222363
+        ]
+      }
+    },
+    "feature_launcher": {
+      "assigned_testing_groups": [
+        "weather_proactivity_experiment_C",
+        "experiment_1_group_A",
+        "new_main_page_exp",
+        "catalog_app"
+      ],
+      "catalog_app": {
+        "enable_favourites": true,
+        "enable_group_by_subcategories": true,
+        "new_main_page": true,
+        "ratings_enable": true,
+        "ratings_voice_enable": true,
+        "shuffle_categories": true
+      },
+      "general_base": {
+        "weather_proactivity_experiment": "C"
+      },
+      "music": {
+        "shazam": true
+      },
+      "new_main_page": {
+        "new_main_page": false
+      },
+      "public": {
+        "greenfield_percentage": 33,
+        "greenfield_segment_list": [
+          "grocery_mobile_04_2021",
+          "sbol_version_gte_12.0.0",
+          "sbol_gte_12.0.0"
+        ]
+      },
+      "ufs_launcher_response": {}
+    },
+    "applicationId": "48bda6e4-3efc-4eeb-834a-251e8820b0e1",
+    "appversionId": "c5ca00ed-91a9-4561-b989-33b3c9fe1e5d",
+    "projectName": "Расторжение НСЖ",
+    "token": "***",
+    "tokenType": "SBER_ID",
+    "device": {
+      "platformType": "IOS",
+      "platformVersion": "14.6",
+      "surface": "SBOL",
+      "surfaceVersion": "12.3.0",
+      "features": {
+        "appTypes": [
+          "DIALOG",
+          "WEB_APP"
+        ]
+      },
+      "capabilities": {
+        "screen": {
+          "available": true,
+          "height": 2436,
+          "scale_factor": 3,
+          "width": 1125
+        }
+      },
+      "deviceId": "F61AE3D2-92FE-4426-884D-6970C931F297",
+      "deviceManufacturer": "Apple",
+      "deviceModel": "iPhone10,6",
+      "additionalInfo": {
+        "host_app_id": "ru.sbertech.sbol.beta",
+        "sdk_version": "21.6.1005"
+      }
+    },
+    "app_info": {
+      "projectId": "4528dff9-8d38-42b8-822f-8bb00aa74986",
+      "applicationId": "48bda6e4-3efc-4eeb-834a-251e8820b0e1",
+      "appversionId": "c5ca00ed-91a9-4561-b989-33b3c9fe1e5d",
+      "systemName": "termination_nsj",
+      "frontendEndpoint": null,
+      "frontendType": "DIALOG",
+      "ageLimit": 18
+    },
+    "strategies": {
+      "happy_birthday": false,
+      "last_call": null
+    },
+    "meta": {
+      "ufsInfo": {
+        "host": "nginx-ios-ift-b1.testonline.sberbank.ru",
+        "ufsSession": {
+          "SWJSESSIONID": "96b8fb39da34a11b7b1b143ae69f2518",
+          "UFS-TOKEN": "bb3e50e4-502f-4303-8d21-2663deb1650a",
+          "DPJSESSIONID": "PBC5YS:-1533447051",
+          "UFS-SESSION": "RPGS8LAmTOapEKoSXL7xHWal4Ce_6wvXR4YULWxGGQEvd8mG1mvOt8AbHykXQ4v3"
+        }
+      },
+      "mobile_sdk_data": "{\n  \"RdpConnection\" : \"0\",\n  \"AgentAppInfo\" : \"SberbankApp 12.3.0 arm64 v8\",\n  \"TimeZoneDSTOffset\" : \"0\",\n  \"MultitaskingSupported\" : true,\n  \"DeviceSystemVersion\" : \"14.6\",\n  \"LocalIPv4\" : \"192.168.10.16\",\n  \"DeviceSystemName\" : \"iOS\",\n  \"AppKey\" : \"CPTJ8oorFK1sjZ0OsVqnyHZCJHGYDaF3\",\n  \"TIMESTAMP\" : \"2021-07-26T17:12:08Z\",\n  \"HardwareID\" : \"F61AE3D2-92FE-4426-884D-6970C931F297\",\n  \"DeviceModel\" : \"iPhone X (GSM)\",\n  \"RSA_ApplicationKey\" : \"-1\",\n  \"Emulator\" : 0,\n  \"AgentBrand\" : \"Apple\",\n  \"DnsIP\" : \"192.168.10.1 77.37.251.33 77.37.255.30 \",\n  \"TimeZone\" : \"180\",\n  \"MCC\" : \"250\",\n  \"AgentSignalStrengthCellular\" : \"-1\",\n  \"OSFontsHash\" : \"52d3dea0cc4d7f69c327b22c4bc74c03\",\n  \"LocalIPv6\" : \"fe80::10b7:4480:6c98:33c7\",\n  \"SDK_VERSION\" : \"1.3.13\",\n  \"Compromised\" : 0,\n  \"ScreenColorDepth\" : \"16.7 million (24-bit)\",\n  \"AgentConnectionType\" : \"Wifi\",\n  \"OS_ID\" : \"64DE3559-6F6B-453A-8FBA-E4FE5906E0BF\",\n  \"AgentBootTime\" : \"912546.704107\",\n  \"Languages\" : \"ru-RU\",\n  \"ScreenSize\" : \"375 x 812\",\n  \"DeviceName\" : \"iPhone (Fed)\",\n  \"GeoLocationInfo\" : [\n    {\n      \"Status\" : \"0\",\n      \"Latitude\" : \"55.64642334\",\n      \"AltitudeAccuracy\" : \"19.1018291\",\n      \"Timestamp\" : \"1627308728390\",\n      \"Altitude\" : \"212.39517085\",\n      \"Longitude\" : \"37.34376174\",\n      \"HorizontalAccuracy\" : \"65\"\n    }\n  ],\n  \"MNC\" : \"01\",\n  \"OSFontsNumber\" : \"276\",\n  \"LocationHash\" : \"0f10c612b50e8a8dc3a830df8534dd42e2a3b4d44d96e48fb26677b8fe2415d5\"\n}",
+      "current_app": {
+        "app_info": {
+          "applicationId": "7c4e23bf-cd93-b57e-874b-d9fc1b35f93d",
+          "systemName": "assistant",
+          "appversionId": "26d0bb2e-45d6-a276-f70e-6c016d1f9cff",
+          "frontendStateId": "d929986a-611a-2ba0-6174-1928c99600a5_7c4e23bf-cd93-b57e-874b-d9fc1b35f93d_26d0bb2e-45d6-a276-f70e-6c016d1f9cff",
+          "frontendType": "DIALOG",
+          "projectId": "d929986a-611a-2ba0-6174-1928c99600a5"
+        },
+        "state": {}
+      },
+      "host_app_state": "main",
+      "location": {
+        "lon": 37.34376174240877,
+        "timestamp": 1627308727040,
+        "accuracy": 65,
+        "lat": 55.646444588280886
+      },
+      "background_apps": [],
+      "time": {
+        "timezone_offset_sec": 10800,
+        "timestamp": 1627308728414,
+        "timezone_id": "Europe/Moscow"
+      },
+      "permissions": [
+        {
+          "type": "record_audio",
+          "status": "granted"
+        },
+        {
+          "status": "denied_permanently",
+          "type": "read_contacts"
+        },
+        {
+          "type": "geo",
+          "status": "granted"
+        },
+        {
+          "type": "push",
+          "status": "denied_permanently"
+        }
+      ],
+      "features": {
+        "screen": {
+          "enabled": true
+        },
+        "int_login": {
+          "enabled": true
+        }
+      }
+    },
+    "client_profile": {
+      "name": "МСТИСЛАВ",
+      "patronymic": "ОЛЕГОВИЧ",
+      "surname": "ХОЛОДКОВ",
+      "gender": 1,
+      "birthDate": "18.02.1981",
+      "electronicAddresses": [
+        {
+          "contactStatus": 1,
+          "electronicAddress": "MAIL@MAIL.RU",
+          "noElectronicAddress": false
+        }
+      ],
+      "phoneNumbers": [
+        {
+          "contactStatus": 1,
+          "phoneNumber": "+7 (904) 9873344",
+          "noPhone": false,
+          "mobileOperator": "mMTS",
+          "flags": [
+            21,
+            14,
+            16,
+            11,
+            54
+          ]
+        },
+        {
+          "contactStatus": 1,
+          "phoneNumber": "+7 (904) 9874455",
+          "noPhone": false,
+          "mobileOperator": "mEKATERINBURG",
+          "flags": [
+            21,
+            14,
+            16,
+            54,
+            7,
+            17
+          ]
+        }
+      ],
+      "equivalents": [
+        {
+          "externalSystemCode": 84,
+          "externalSystemClientId": "4458618710"
+        },
+        {
+          "externalSystemCode": 84,
+          "externalSystemClientId": "||||16 84 187854"
+        },
+        {
+          "externalSystemCode": 73,
+          "externalSystemClientId": "43113001"
+        },
+        {
+          "externalSystemCode": 43,
+          "externalSystemClientId": "4264066379972"
+        }
+      ],
+      "partyToPartyGroups": [
+        3
+      ],
+      "aggregated_data": {
+        "ageBucket": "от 40 до 49 лет",
+        "gender": 1,
+        "residenceRegion": "МОСКВА",
+        "residenceCity": "МОСКВА",
+        "birthdayEvent": false
+      }
+    },
+    "legacyEribInfo": {
+      "token": "***"
+    },
+    "ufs_info": {
+      "host": "http://tvlds-pif000003.delta.sbrf.ru:7681",
+      "ufsSession": {
+        "SWJSESSIONID": "96b8fb39da34a11b7b1b143ae69f2518",
+        "UFS-TOKEN": "bb3e50e4-502f-4303-8d21-2663deb1650a",
+        "DPJSESSIONID": "PBC5YS:-1533447051",
+        "UFS-SESSION": "RPGS8LAmTOapEKoSXL7xHWal4Ce_6wvXR4YULWxGGQEvd8mG1mvOt8AbHykXQ4v3"
+      }
+    }
+  },
+  "uuid": {
+    "userId": "A930FC3E-3B4A-48A8-B32C-C27399505FD9",
+    "sub": "85d7d867ffbc467a9fa676cc30921f5021c577459ce1a564c594b17b9562e6a8a3028e64eea639f7",
+    "userChannel": "SBOL"
+  }
+}

@@ -1,0 +1,413 @@
+{
+  "messageId": 1765862687,
+  "sessionId": "cf5b51da-ba94-3fc0-8479-848e421a554f",
+  "messageName": "MESSAGE_TO_SKILL",
+  "payload": {
+    "intent": "buy_pai_pif",
+    "original_intent": "axon",
+    "intent_meta": {},
+    "message": {
+      "original_text": "Подтверждаю",
+      "normalized_text": "подтверждать .",
+      "tokenized_elements_list": [
+        {
+          "text": "Подтверждаю",
+          "raw_text": "Подтверждаю",
+          "grammem_info": {
+            "aspect": "impf",
+            "mood": "ind",
+            "number": "sing",
+            "person": "1",
+            "tense": "notpast",
+            "transitivity": "intr",
+            "verbform": "fin",
+            "voice": "act",
+            "raw_gram_info": "aspect=impf|mood=ind|number=sing|person=1|tense=notpast|transitivity=intr|verbform=fin|voice=act",
+            "part_of_speech": "VERB"
+          },
+          "lemma": "подтверждать",
+          "is_stop_word": false,
+          "list_of_dependents": [],
+          "dependency_type": "root",
+          "head": 0
+        },
+        {
+          "raw_text": ".",
+          "text": ".",
+          "lemma": ".",
+          "token_type": "SENTENCE_ENDPOINT_TOKEN",
+          "token_value": {
+            "value": "."
+          },
+          "list_of_token_types_data": [
+            {
+              "token_type": "SENTENCE_ENDPOINT_TOKEN",
+              "token_value": {
+                "value": "."
+              }
+            }
+          ]
+        }
+      ],
+      "entities": {},
+      "original_message_name": "MESSAGE_FROM_USER",
+      "human_normalized_text": "подтверждать",
+      "asr_normalized_message": null,
+      "human_normalized_text_with_anaphora": "подтверждать"
+    },
+    "annotations": {
+      "censor_data": {
+        "classes": [
+          "politicians",
+          "obscene",
+          "model_response"
+        ],
+        "probas": [
+          0,
+          0,
+          0.0009040305740199983
+        ]
+      },
+      "text_sentiment": {
+        "classes": [
+          "negative",
+          "positive",
+          "neutral"
+        ],
+        "probas": [
+          0.0016006381483748555,
+          0.0653681829571724,
+          0.9330311417579651
+        ]
+      },
+      "asr_sentiment": {
+        "classes": [],
+        "probas": []
+      },
+      "ner_prediction": [
+        {
+          "raw_text": "Подтверждаю",
+          "lemma": "подтверждать",
+          "normalized_token": null,
+          "ner_labels": {
+            "food": "O",
+            "main": "B-ORG",
+            "music": "O",
+            "odqa": "O",
+            "video": "O"
+          },
+          "ner_label_probas": {
+            "food": "0.999995",
+            "main": "0.9985833",
+            "music": "0.7861071",
+            "odqa": "0.45624998",
+            "video": "0.9033687"
+          }
+        }
+      ],
+      "normalized_entities": {
+        "main": {}
+      }
+    },
+    "smartBio": {},
+    "new_session": false,
+    "selected_item": {},
+    "contentProvider": {},
+    "character": {
+      "id": "sber",
+      "name": "Сбер",
+      "gender": "male",
+      "appeal": "official"
+    },
+    "inner_entities": {
+      "VIDEO_STOPWORDS_TOKEN": [
+        {
+          "ner": "Подтверждаю",
+          "norm": "подтверждаю",
+          "distance": 0.0
+        }
+      ],
+      "FOOD_STOPWORDS_TOKEN": [
+        {
+          "ner": "Подтверждаю",
+          "norm": "подтверждаю",
+          "distance": 0.0
+        }
+      ],
+      "WIKI_STOPWORDS_TOKEN": [
+        {
+          "ner": "Подтверждаю",
+          "norm": "подтверждаю",
+          "distance": 0.0
+        }
+      ],
+      "MUSIC_STOPWORDS_TOKEN": [
+        {
+          "ner": "Подтверждаю",
+          "norm": "подтверждаю",
+          "distance": 0.0
+        }
+      ]
+    },
+    "epkId": "***",
+    "asr": {},
+    "dynamic_stuff": {},
+    "feature_launcher": {
+      "assigned_testing_groups": [
+        "suggest_experiment_group_A",
+        "catalog_app",
+        "weather_proactivity_experiment_A",
+        "new_main_page_exp",
+        "experiment_hints_on_serp_group_A",
+        "experiment_1_group_A",
+        "A0628_B_TESTING",
+        "experiment_tv_super_app_group_A",
+        "GREENFIELD",
+        "general_base_first_session_sbol_group_29"
+      ],
+      "axonApp": {
+        "is_deep_link_suggests_enabled": false
+      },
+      "cards_app_section": {
+        "intents": {
+          "A01.01662.Auto_repayment_by_credit_card": {
+            "enabled": true
+          },
+          "card_balance": {
+            "enabled": true
+          }
+        }
+      },
+      "catalog_app": {
+        "canvas_debug_panel": true,
+        "enable_favourites": true,
+        "enable_group_by_subcategories": true,
+        "extended_mixed_enable": true,
+        "mobile_app_card_multiple_lines": true,
+        "new_main_page": true,
+        "ratings_enable": true,
+        "ratings_voice_enable": true,
+        "shuffle_categories": true
+      },
+      "dialog_policy": {
+        "apk_navigation_command": true,
+        "convert_chat_app": true,
+        "memory_timeout": 5,
+        "shazam_separate_project": true,
+        "skip_ufs_launcher_check": false
+      },
+      "foodtech": {
+        "foodtech_feature_flag_test": true
+      },
+      "general_base": {
+        "calendar_show_exchange": true,
+        "first_session_sbol": "group_29",
+        "weather_proactivity_experiment": "A"
+      },
+      "intent_recognizer": {
+        "jivo_deeplink_app_enalbed": true
+      },
+      "music": {
+        "shazam": true
+      },
+      "new_main_page": {
+        "new_main_page": false
+      },
+      "nlp_platform": {},
+      "public": {
+        "greenfield_percentage": 10,
+        "greenfield_segment_list": [
+          "test_template",
+          "cards_app__segment_settings",
+          "convert_chat_app_segment",
+          "shazam_separate",
+          "SBOL",
+          "sbol_version_gte_12.0.0",
+          "ALL_PEOPLES",
+          "SBOL_12_1_ios",
+          "grocery_mobile_04_2021",
+          "sbol_gte_12.0.0",
+          "GREENFIELD"
+        ]
+      },
+      "rb_app_section": {
+        "A0521_gallery_test": "true",
+        "A0628_B_TESTING": "True"
+      },
+      "ufs_launcher_response": {},
+      "video": {
+        "assistant_hints": {
+          "hints_on_serp": true
+        },
+        "tv_in_super_app": true
+      }
+    },
+    "reverseGeocoding": {},
+    "applicationId": "7f6ce2a8-cc5e-43d2-85ba-9da66969b31d",
+    "appversionId": "739d0162-e557-4c50-b615-f4d68125de7c",
+    "projectName": "Покупка ПИФ",
+    "token": "***",
+    "tokenType": "SBER_ID",
+    "device": {
+      "platformType": "IOS",
+      "platformVersion": "14.4.2",
+      "surface": "SBOL",
+      "surfaceVersion": "12.6.0",
+      "features": {
+        "appTypes": [
+          "DIALOG",
+          "WEB_APP",
+          "CHAT_APP"
+        ]
+      },
+      "capabilities": {
+        "screen": {
+          "available": true,
+          "height": 1136,
+          "scale_factor": 2,
+          "width": 640
+        }
+      },
+      "deviceId": "6F9DE429-E55C-4EAA-80A8-08213B995989",
+      "deviceManufacturer": "Apple",
+      "deviceModel": "iPhone8,4",
+      "additionalInfo": {
+        "host_app_id": "ru.sbertech.sbol.beta",
+        "sdk_version": "21.6.2008"
+      }
+    },
+    "app_info": {
+      "projectId": "62291a87-3f72-47d8-952c-fbcdd639983a",
+      "applicationId": "7f6ce2a8-cc5e-43d2-85ba-9da66969b31d",
+      "appversionId": "739d0162-e557-4c50-b615-f4d68125de7c",
+      "systemName": "buy_pai_pif",
+      "frontendEndpoint": null,
+      "frontendType": "DIALOG",
+      "ageLimit": 18
+    },
+    "strategies": {
+      "happy_birthday": false,
+      "last_call": null
+    },
+    "meta": {
+      "host_app_state": "main",
+      "permissions": [
+        {
+          "type": "record_audio",
+          "status": "granted"
+        },
+        {
+          "type": "read_contacts",
+          "status": "denied_permanently"
+        },
+        {
+          "type": "geo",
+          "status": "denied_permanently"
+        },
+        {
+          "status": "granted",
+          "type": "push"
+        }
+      ],
+      "current_app": {
+        "state": {},
+        "app_info": {
+          "projectId": "d929986a-611a-2ba0-6174-1928c99600a5",
+          "frontendStateId": "d929986a-611a-2ba0-6174-1928c99600a5_7c4e23bf-cd93-b57e-874b-d9fc1b35f93d_26d0bb2e-45d6-a276-f70e-6c016d1f9cff",
+          "systemName": "assistant",
+          "frontendType": "DIALOG",
+          "appversionId": "26d0bb2e-45d6-a276-f70e-6c016d1f9cff",
+          "applicationId": "7c4e23bf-cd93-b57e-874b-d9fc1b35f93d"
+        }
+      },
+      "time": {
+        "timestamp": 1631699412807,
+        "timezone_id": "Asia/Yekaterinburg",
+        "timezone_offset_sec": 18000
+      },
+      "background_apps": [],
+      "mobile_sdk_data": "{\"RdpConnection\":\"0\",\"AgentAppInfo\":\"SberbankApp 12.6.0 arm64 v8\",\"TimeZoneDSTOffset\":\"0\",\"MultitaskingSupported\":true,\"AdvertiserId\":\"00000000-0000-0000-0000-000000000000\",\"DeviceSystemVersion\":\"14.4.2\",\"LocalIPv4\":\"192.168.0.103\",\"DeviceSystemName\":\"iOS\",\"AppKey\":\"3o3CT0AtexWXaBVuI2PYOAyDIVqVAQ4b\",\"TIMESTAMP\":\"2021-09-15T14:50:12Z\",\"HardwareID\":\"6F9DE429-E55C-4EAA-80A8-08213B995989\",\"DeviceModel\":\"iPhone SE\",\"RSA_ApplicationKey\":\"-1\",\"Emulator\":0,\"AgentBrand\":\"Apple\",\"DnsIP\":\"192.168.0.1 \",\"TimeZone\":\"300\",\"MCC\":\"250\",\"AgentSignalStrengthCellular\":\"-1\",\"OSFontsHash\":\"52d3dea0cc4d7f69c327b22c4bc74c03\",\"LocalIPv6\":\"fe80::485:76f9:e1a9:ae78\",\"SDK_VERSION\":\"1.3.13\",\"Compromised\":0,\"ScreenColorDepth\":\"16.7 million (24-bit)\",\"AgentConnectionType\":\"Wifi\",\"OS_ID\":\"6D0AA570-528E-43A0-B70D-D6A8CD1C461E\",\"AgentBootTime\":\"91113.815901\",\"Languages\":\"ru-RU\",\"ScreenSize\":\"320 x 568\",\"DeviceName\":\"iPhone\",\"GeoLocationInfo\":[{\"Latitude\":\"0\",\"Longitude\":\"0\",\"Status\":\"0\",\"Timestamp\":\"0\",\"HorizontalAccuracy\":\"0\"}],\"MNC\":\"02\",\"OSFontsNumber\":\"276\",\"LocationHash\":\"98e5f378825e953925c1076ce79e03d9ab271ade1d3eb24479e53370908bc91b\"}",
+      "features": {
+        "screen": {
+          "enabled": true
+        },
+        "int_login": {
+          "enabled": true
+        },
+        "demo_mode": {
+          "enabled": false
+        }
+      },
+      "child_mode": false
+    },
+    "additional_info": {},
+    "client_profile": {
+      "name": "ЕВГЕНИЙ",
+      "patronymic": "МИХАЙЛОВИЧ",
+      "surname": "СМИРНОВ",
+      "gender": 1,
+      "birthDate": "12.01.1985",
+      "electronicAddresses": [
+        {
+          "contactStatus": 1,
+          "electronicAddress": "MAIL@MAIL.RU",
+          "noElectronicAddress": false
+        }
+      ],
+      "phoneNumbers": [
+        {
+          "contactStatus": 1,
+          "phoneNumber": "+7 (905) 1475547",
+          "noPhone": false,
+          "mobileOperator": "mBEELINE",
+          "flags": [
+            67,
+            54,
+            17,
+            14,
+            16
+          ]
+        }
+      ],
+      "equivalents": [
+        {
+          "externalSystemCode": 73,
+          "externalSystemClientId": "43178445"
+        },
+        {
+          "externalSystemCode": 84,
+          "externalSystemClientId": "4464567550"
+        },
+        {
+          "externalSystemCode": 84,
+          "externalSystemClientId": "СМИРНОВ|ЕВГЕНИЙ|МИХАЙЛОВИЧ||46 34 590276"
+        }
+      ],
+      "partyToPartyGroups": [],
+      "aggregated_data": {
+        "ageBucket": "от 30 до 39 лет",
+        "gender": 1,
+        "residenceRegion": "МОСКВА",
+        "residenceCity": "МОСКВА",
+        "birthdayEvent": false
+      }
+    },
+    "legacyEribInfo": {
+      "token": "***"
+    },
+    "ufs_info": {
+      "host": "http://tvlds-pif000003.delta.sbrf.ru:7681",
+      "ufsSession": {
+        "UFS-SESSION": "nahsjRrURPGeP6G95ZPFmSdcirHO2n4gs2o7zxGZVVVa75tLRhv2-_KOu0La2Gsz",
+        "SWJSESSIONID": "7f7fcc219aae092c9b0dd678c2146887",
+        "DPJSESSIONID": "PBC5YS:-1533447051",
+        "UFS-TOKEN": "b9b84115-5176-48a6-a97e-4a3b25638ff5"
+      }
+    }
+  },
+  "uuid": {
+    "userId": "7D049E6D-02F0-4DE7-9343-6637985DD45E",
+    "sub": "835f7d11974d2f47dd3d0cc8d095b0750cee34297ef0e5b9e96a1fa03e894186a3028e64eea639f7",
+    "userChannel": "SBOL"
+  }
+}
