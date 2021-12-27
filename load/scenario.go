@@ -2,6 +2,8 @@ package load
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"ledokol/kafkah"
 	"math/rand"
 	"os"
@@ -13,21 +15,21 @@ type Scenario struct {
 	Steps []*Step
 }
 
-func InitScenariosFromConfig(fileName string) ([]Scenario, error) {
+func InitScenariosFromFile(fileName string, messageFolder string) ([]Scenario, error) {
 	result := make([]Scenario, 0)
 	data, err := os.ReadFile(fileName)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("Файл со сценариями для теста не найден")
 	}
 	err = json.Unmarshal(data, &result)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("Файл сценариев для теста имеет неверный формат")
 	}
-	for i, _ := range result {
-		for j, _ := range result[i].Steps {
-			result[i].Steps[j].FileContent, err = os.ReadFile("res/messages/" + result[i].Steps[j].FileName)
+	for i := range result {
+		for j := range result[i].Steps {
+			result[i].Steps[j].FileContent, err = os.ReadFile(messageFolder + result[i].Steps[j].FileName)
 			if err != nil {
-				return nil, err
+				return nil, errors.New(fmt.Sprintf("Файл с сообщением для сценария \"%s\" шага \"%s\" не найден", result[i].Name, result[i].Steps[j].Name))
 			}
 		}
 	}
@@ -38,7 +40,7 @@ func (scenario *Scenario) Process(producer *kafkah.ProducerWrapper, consumer *ka
 	userId := rand.Int63n(99999999) + 100000000
 	sessionId := rand.Int63n(99999999) + 100000000
 	for _, step := range scenario.Steps {
-		step.process(producer, userId, sessionId, consumer, scenario.Name)
+		step.process(producer, userId, sessionId, consumer)
 	}
 	//fmt.Println("Итерация закончена")
 }
@@ -49,7 +51,7 @@ type Step struct {
 	FileContent []byte
 }
 
-func (step *Step) process(producer *kafkah.ProducerWrapper, userId int64, sessionId int64, consumer *kafkah.ConsumerWrapper, scenarioName string) {
+func (step *Step) process(producer *kafkah.ProducerWrapper, userId int64, sessionId int64, consumer *kafkah.ConsumerWrapper) {
 	messageId := userId + rand.Int63n(9999) + 10000
 	changedMessage := kafkah.ReplaceAll(step.FileContent, messageId, sessionId, userId)
 	producer.SendMessage([]byte(changedMessage))

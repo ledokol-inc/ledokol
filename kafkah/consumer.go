@@ -35,6 +35,7 @@ func (consumerWrapper *ConsumerWrapper) ProcessConsume() {
 			fmt.Println("Получено сообщение без messageID")
 			continue
 		}
+		//fmt.Println(message.Headers[1].)
 		consumerWrapper.messages.Store(string(messageIds[1]), string(message.Value))
 		consumerWrapper.messagesAge.Store(string(messageIds[1]), time.Now().Second())
 	}

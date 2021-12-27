@@ -1,0 +1,25 @@
+{
+  "name": "Поиск максимума",
+  "pacing": 60,
+  "pacingDelta": 0.1,
+  "scenariosName": "smartapp",
+  "totalDuration": 500,
+  "steps": [
+    {
+      "action": "start",
+      "totalUsersCount": 50,
+      "countUsersByPeriod": 2,
+      "period": 2
+    },
+    {
+      "action": "duration",
+      "period": 300
+    },
+    {
+      "action": "stop",
+      "totalUsersCount": 50,
+      "countUsersByPeriod": 2,
+      "period": 2
+    }
+  ]
+}
