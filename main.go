@@ -73,10 +73,10 @@ func getTestTimeFromHistory(id string, w http.ResponseWriter) {
 		w.Write([]byte("Неправильный формат данных в файле истории"))
 		return
 	}
-	for _, record := range records {
-		if record[0] == id {
-			start, err1 := strconv.ParseInt(record[1], 10, 64)
-			end, err2 := strconv.ParseInt(record[2], 10, 64)
+	for i := 1; i < len(records); i++ {
+		if records[i][0] == id {
+			start, err1 := strconv.ParseInt(records[i][1], 10, 64)
+			end, err2 := strconv.ParseInt(records[i][2], 10, 64)
 			if err1 != nil || err2 != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				w.Write([]byte("Неправильный формат данных в файле истории"))
@@ -99,7 +99,7 @@ func generateTestId(historyFile *os.File) (int, error) {
 		return 0, errors.New("Неправильный формат данных в файле истории")
 	}
 	testId := 1
-	for i := 0; i < len(records); i++ {
+	for i := 1; i < len(records); i++ {
 		id, err := strconv.Atoi(records[i][0])
 		if err != nil {
 			return 0, errors.New("Неправильный формат данных в файле истории")

@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"ledokol/kafkah"
 	"math/rand"
 	"os"
@@ -28,6 +26,7 @@ type Test struct {
 	Steps           []TestStep
 	TotalDuration   float64
 	stopUserChannel chan bool
+	id              string
 }
 
 func InitTestFromFile(fileName string) (*Test, error) {
@@ -65,17 +64,16 @@ func InitTestFromFile(fileName string) (*Test, error) {
 }
 
 func (test *Test) Run(id int) {
+	test.id = strconv.Itoa(id)
+	usersCountMetric.WithLabelValues(test.id).Set(0)
 	go test.consumer.ProcessConsume()
 	go test.consumer.DeleteOldMessages(10)
-
-	usersCountMetric := promauto.NewGauge(prometheus.GaugeOpts{Name: "runner_users_running", Help: "Текущее количество работающих пользователей"})
-	usersCountMetric.Set(0)
 
 	startTime := time.Now().Unix()
 
 	for _, step := range test.Steps {
 		if step.Action == "start" {
-			test.StartUsersContinually(step.TotalUsersCount, step.CountUsersByPeriod, int(step.Period*1000), usersCountMetric)
+			test.StartUsersContinually(step.TotalUsersCount, step.CountUsersByPeriod, int(step.Period*1000))
 		} else if step.Action == "duration" {
 			time.Sleep(time.Duration(step.Period*1000) * time.Millisecond)
 		} else if step.Action == "stop" {
@@ -83,7 +81,7 @@ func (test *Test) Run(id int) {
 		}
 	}
 	test.consumer.Close()
-	historyFile, err := os.Open(TestHistoryFileName)
+	historyFile, err := os.OpenFile(TestHistoryFileName, os.O_WRONLY|os.O_APPEND, 0660)
 	defer historyFile.Close()
 	if err == nil {
 		test.writeTestInfo(historyFile, id, startTime, time.Now().Unix())
@@ -97,9 +95,9 @@ type TestStep struct {
 	Period             float64
 }
 
-func (test *Test) StartUsersContinually(totalCount int, countByPeriod int, periodInMillis int, usersCountMetric prometheus.Gauge) {
+func (test *Test) StartUsersContinually(totalCount int, countByPeriod int, periodInMillis int) {
 	for i := 0; i < totalCount; i += countByPeriod {
-		test.StartUsers(countByPeriod, usersCountMetric)
+		test.StartUsers(countByPeriod)
 		time.Sleep(time.Duration(periodInMillis) * time.Millisecond)
 	}
 }
@@ -120,16 +118,16 @@ func (test *Test) StopUsersContinually(totalCount int, countByPeriod int, period
 	stopUsersDone.Wait()
 }
 
-func (test *Test) StartUsers(count int, usersCountMetric prometheus.Gauge) {
+func (test *Test) StartUsers(count int) {
 	for i := 0; i < count; i++ {
 		go func() {
 			producer := kafkah.NewProducer()
 			rand.Seed(time.Now().UnixNano())
-			usersCountMetric.Inc()
+			usersCountMetric.WithLabelValues(test.id).Inc()
 			for {
 				timeBeforeTest := time.Now().UnixMilli()
 				scenarioNumber := rand.Intn(len(test.scenarios))
-				test.scenarios[scenarioNumber].Process(producer, test.consumer)
+				test.scenarios[scenarioNumber].Process(producer, test.consumer, test.id)
 				currentPacing := ((rand.Float64()*2-1)*test.PacingDelta + 1) * test.Pacing
 				timeToSleep := int64(currentPacing*1000) - time.Now().UnixMilli() + timeBeforeTest
 				if timeToSleep < 1 {
@@ -137,7 +135,7 @@ func (test *Test) StartUsers(count int, usersCountMetric prometheus.Gauge) {
 				}
 				select {
 				case _ = <-test.stopUserChannel:
-					usersCountMetric.Dec()
+					usersCountMetric.WithLabelValues(test.id).Dec()
 					producer.Close()
 					return
 				case <-time.After(time.Duration(timeToSleep) * time.Millisecond):
@@ -150,5 +148,6 @@ func (test *Test) StartUsers(count int, usersCountMetric prometheus.Gauge) {
 
 func (test *Test) writeTestInfo(historyFile *os.File, testId int, startTime int64, endTime int64) {
 	writer := csv.NewWriter(historyFile)
-	writer.Write([]string{strconv.Itoa(testId), time.Unix(startTime, 0).Format(TimeFormat), time.Unix(endTime, 0).Format(TimeFormat)})
+	writer.Write([]string{strconv.Itoa(testId), strconv.FormatInt(time.Unix(startTime, 0).Unix(), 10), strconv.FormatInt(time.Unix(endTime, 0).Unix(), 10)})
+	writer.Flush()
 }

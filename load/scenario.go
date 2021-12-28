@@ -8,6 +8,8 @@ import (
 	"math/rand"
 	"os"
 	"strconv"
+	"strings"
+	"time"
 )
 
 type Scenario struct {
@@ -36,11 +38,45 @@ func InitScenariosFromFile(fileName string, messageFolder string) ([]Scenario, e
 	return result, nil
 }
 
-func (scenario *Scenario) Process(producer *kafkah.ProducerWrapper, consumer *kafkah.ConsumerWrapper) {
+func (scenario *Scenario) Process(producer *kafkah.ProducerWrapper, consumer *kafkah.ConsumerWrapper, testId string) {
 	userId := rand.Int63n(99999999) + 100000000
 	sessionId := rand.Int63n(99999999) + 100000000
-	for _, step := range scenario.Steps {
-		step.process(producer, userId, sessionId, consumer)
+	success := true
+	startScenarioTime := time.Now().UnixMilli()
+	for i := 0; i < len(scenario.Steps); i++ {
+		messageId := userId + rand.Int63n(9999) + 10000
+		changedMessage := kafkah.ReplaceAll(scenario.Steps[i].FileContent, messageId, sessionId, userId)
+		startTime := time.Now().UnixMilli()
+		producer.SendMessage([]byte(changedMessage))
+		//fmt.Printf("Сценарий %s, Шаг %s: сообщение отправлено, message id = %d\n", scenarioName, step.Name, messageId)
+		//currentTime := time.Now().UnixMilli()
+
+		response := consumer.WaitForMessage(strconv.FormatInt(messageId, 10), 8000)
+
+		//fmt.Printf("Сценарий %s, Шаг %s: ", scenarioName, step.Name)
+		if response == "" {
+			failedTransactionCountMetric.WithLabelValues(testId, scenario.Name, scenario.Steps[i].Name, "true").Inc()
+			success = false
+			break
+			//fmt.Printf("Прошло 8 секунд, сообщения не было\n")
+		} else {
+			containsFinished := strings.Contains(response, "\"finished\": true")
+			isEnded := i == len(scenario.Steps)-1
+			if !isEnded && containsFinished || isEnded && !containsFinished {
+				failedTransactionCountMetric.WithLabelValues(testId, scenario.Name, scenario.Steps[i].Name, "false").Inc()
+				success = false
+				break
+			} else {
+				successTransactionCountMetric.WithLabelValues(testId, scenario.Name, scenario.Steps[i].Name).
+					Observe(float64(time.Now().UnixMilli()-startTime) / 1000.0)
+			}
+			//fmt.Printf("Сообщение получено за %d мс\n", time.Now().UnixMilli()-currentTime)
+		}
+	}
+	if success {
+		successScenarioCountMetric.WithLabelValues(testId, scenario.Name).Observe(float64(time.Now().UnixMilli()-startScenarioTime) / 1000.0)
+	} else {
+		failedScenarioCountMetric.WithLabelValues(testId, scenario.Name).Inc()
 	}
 	//fmt.Println("Итерация закончена")
 }
@@ -49,21 +85,4 @@ type Step struct {
 	Name        string
 	FileName    string
 	FileContent []byte
-}
-
-func (step *Step) process(producer *kafkah.ProducerWrapper, userId int64, sessionId int64, consumer *kafkah.ConsumerWrapper) {
-	messageId := userId + rand.Int63n(9999) + 10000
-	changedMessage := kafkah.ReplaceAll(step.FileContent, messageId, sessionId, userId)
-	producer.SendMessage([]byte(changedMessage))
-	//fmt.Printf("Сценарий %s, Шаг %s: сообщение отправлено, message id = %d\n", scenarioName, step.Name, messageId)
-	//currentTime := time.Now().UnixMilli()
-
-	response := consumer.WaitForMessage(strconv.FormatInt(messageId, 10), 8000)
-
-	//fmt.Printf("Сценарий %s, Шаг %s: ", scenarioName, step.Name)
-	if response == "" {
-		//fmt.Printf("Прошло 8 секунд, сообщения не было\n")
-	} else {
-		//fmt.Printf("Сообщение получено за %d мс\n", time.Now().UnixMilli()-currentTime)
-	}
 }
