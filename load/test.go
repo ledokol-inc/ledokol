@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -59,15 +60,19 @@ func InitTestFromFile(fileName string) (*Test, error) {
 	}
 
 	result.stopUserChannel = make(chan bool)
-	result.consumer = kafkah.NewConsumer()
+	if !strings.Contains(fileName, "tstub") {
+		result.consumer = kafkah.NewConsumer()
+	}
 	return result, nil
 }
 
 func (test *Test) Run(id int) {
 	test.id = strconv.Itoa(id)
 	usersCountMetric.WithLabelValues(test.id).Set(0)
-	go test.consumer.ProcessConsume()
-	go test.consumer.DeleteOldMessages(10)
+	if test.consumer != nil {
+		go test.consumer.ProcessConsume()
+		go test.consumer.DeleteOldMessages(10)
+	}
 
 	startTime := time.Now().Unix()
 
@@ -80,7 +85,10 @@ func (test *Test) Run(id int) {
 			test.StopUsersContinually(step.TotalUsersCount, step.CountUsersByPeriod, int(step.Period*1000))
 		}
 	}
-	test.consumer.Close()
+
+	if test.consumer != nil {
+		test.consumer.Close()
+	}
 	historyFile, err := os.OpenFile(TestHistoryFileName, os.O_WRONLY|os.O_APPEND, 0660)
 	defer historyFile.Close()
 	if err == nil {
@@ -121,13 +129,20 @@ func (test *Test) StopUsersContinually(totalCount int, countByPeriod int, period
 func (test *Test) StartUsers(count int) {
 	for i := 0; i < count; i++ {
 		go func() {
-			producer := kafkah.NewProducer()
+			var producer *kafkah.ProducerWrapper
+			if test.consumer != nil {
+				producer = kafkah.NewProducer()
+			}
 			rand.Seed(time.Now().UnixNano())
 			usersCountMetric.WithLabelValues(test.id).Inc()
 			for {
 				timeBeforeTest := time.Now().UnixMilli()
 				scenarioNumber := rand.Intn(len(test.scenarios))
-				test.scenarios[scenarioNumber].Process(producer, test.consumer, test.id)
+				if test.consumer != nil {
+					test.scenarios[scenarioNumber].Process(producer, test.consumer, test.id)
+				} else {
+					test.scenarios[scenarioNumber].ProcessHttp(test.id)
+				}
 				currentPacing := ((rand.Float64()*2-1)*test.PacingDelta + 1) * test.Pacing
 				timeToSleep := int64(currentPacing*1000) - time.Now().UnixMilli() + timeBeforeTest
 				if timeToSleep < 1 {
@@ -136,7 +151,9 @@ func (test *Test) StartUsers(count int) {
 				select {
 				case _ = <-test.stopUserChannel:
 					usersCountMetric.WithLabelValues(test.id).Dec()
-					producer.Close()
+					if test.consumer != nil {
+						producer.Close()
+					}
 					return
 				case <-time.After(time.Duration(timeToSleep) * time.Millisecond):
 					continue

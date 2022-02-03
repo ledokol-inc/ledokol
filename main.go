@@ -16,7 +16,7 @@ import (
 
 func main() {
 
-	srv := &http.Server{Addr: ":8080"}
+	srv := &http.Server{Addr: ":1454"}
 	http.Handle("/metrics", promhttp.Handler())
 	http.HandleFunc("/", runTestController)
 
