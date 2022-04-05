@@ -4,7 +4,7 @@
     "steps": [
       {
         "name": "Отправка сообщения",
-        "url": "http://tvlds-pif000003.delta.sbrf.ru:6681/TStub/http/process",
+        "url": "http://127.0.0.1:7712/TStub/http/process",
         "body": "{\"graphQuery\": {\"productCode\":\"fund_bond_im\"}}"
       }
     ]
