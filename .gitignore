@@ -2,3 +2,5 @@ vendor
 target
 *.iml
 .idea
+res
+kafkah/config.go
