@@ -1,10 +1,8 @@
 package load
 
 import (
-	"encoding/csv"
 	"ledokol/kafkah"
 	"math/rand"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -136,10 +134,4 @@ func (test *Test) StartUsers(count int) {
 			}
 		}()
 	}
-}
-
-func (test *Test) writeTestInfo(historyFile *os.File, testId int, startTime int64, endTime int64) {
-	writer := csv.NewWriter(historyFile)
-	writer.Write([]string{strconv.Itoa(testId), strconv.FormatInt(time.Unix(startTime, 0).Unix(), 10), strconv.FormatInt(time.Unix(endTime, 0).Unix(), 10)})
-	writer.Flush()
 }
