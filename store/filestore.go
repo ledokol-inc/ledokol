@@ -160,5 +160,6 @@ func (store *FileStore) getRecordsFromTestFile() ([][]string, error) {
 	if err != nil {
 		return nil, &InternalError{errors.New("Неправильный формат данных в файле истории")}
 	}
+
 	return records, nil
 }
