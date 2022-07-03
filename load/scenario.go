@@ -2,13 +2,9 @@ package load
 
 import (
 	"bytes"
-	"encoding/json"
-	"errors"
-	"fmt"
 	"ledokol/kafkah"
 	"math/rand"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -17,31 +13,6 @@ import (
 type Scenario struct {
 	Name  string
 	Steps []*Step
-}
-
-func InitScenariosFromFile(fileName string, messageFolder string) ([]Scenario, error) {
-	result := make([]Scenario, 0)
-	data, err := os.ReadFile(fileName)
-	if err != nil {
-		return nil, errors.New("Файл со сценариями для теста не найден")
-	}
-	err = json.Unmarshal(data, &result)
-	if err != nil {
-		return nil, errors.New("Файл сценариев для теста имеет неверный формат\nError: " + err.Error())
-	}
-	for i := range result {
-		for j := range result[i].Steps {
-			if result[i].Steps[j].FileName != "" {
-				var messageInBytes []byte
-				messageInBytes, err = os.ReadFile(messageFolder + result[i].Steps[j].FileName)
-				result[i].Steps[j].Message = string(messageInBytes)
-			}
-			if err != nil {
-				return nil, errors.New(fmt.Sprintf("Файл с сообщением для сценария \"%s\" шага \"%s\" не найден", result[i].Name, result[i].Steps[j].Name))
-			}
-		}
-	}
-	return result, nil
 }
 
 func (scenario *Scenario) Process(producer *kafkah.ProducerWrapper, consumer *kafkah.ConsumerWrapper, testId string) {

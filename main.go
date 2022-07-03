@@ -1,167 +1,117 @@
 package main
 
 import (
-	"encoding/csv"
 	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"ledokol/load"
+	"ledokol/store"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 )
 
 func main() {
 
+	storeObj := store.NewFileStore("res")
+
 	router := gin.Default()
 
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
-	router.GET("/test/history", getAllTestsFromHistory)
-	router.GET("/test/history/:id", getTestTimeFromHistory)
+	router.GET("/test/history", getAllTestsFromHistory(storeObj))
+	router.GET("/test/history/:id", getTestTimeFromHistory(storeObj))
 	router.POST("/test/catalog/:name", func(c *gin.Context) {
 		name := c.Param("name")
 		action := c.Query("action")
 		if action == "run" {
-			test, err := load.InitTestFromFile("res/tests/" + name + ".json")
+
+			testId, err := runTest(name, storeObj)
+
 			if err != nil {
-				c.String(http.StatusNotFound, err.Error())
+				processMiddlewareError(c, err)
 			} else {
-				historyFile, err := os.Open(load.TestHistoryFileName)
-				if err != nil {
-					c.String(http.StatusInternalServerError, "Не найден файл с историей тестов")
-					return
-				}
-				defer historyFile.Close()
-				testId, err := generateTestId(historyFile)
-
-				if err != nil {
-					c.String(http.StatusInternalServerError, err.Error())
-					return
-				}
-
 				c.String(http.StatusOK, "Тест запущен. ID теста - "+strconv.Itoa(testId))
-				go test.Run(testId)
 			}
 		}
 	})
-	router.GET("/test/history/pc/:id", getPCCompatibleTestInfo)
+	router.GET("/test/history/pc/:id", getPCCompatibleTestInfo(storeObj))
 
 	err := router.Run(":1454")
 	log.Fatalf("ListenAndServe(): %v", err)
 }
 
-func getPCCompatibleTestInfo(context *gin.Context) {
-	id := context.Param("id")
-	historyFile, err := os.Open(load.TestHistoryFileName)
-	if err != nil {
-		context.String(http.StatusInternalServerError, "Не найден файл с историей тестов")
-		return
+func getPCCompatibleTestInfo(storeObj store.Store) gin.HandlerFunc {
+
+	return func(context *gin.Context) {
+		id := context.Param("id")
+
+		start, end, err := storeObj.FindTestTimeFromHistory(id)
+
+		processMiddlewareError(context, err)
+		context.String(http.StatusOK, "{\"dt_from\": \"%s\", \"dt_to\": \"%s\"}",
+			start.Format(load.TimeFormat),
+			end.Format(load.TimeFormat))
 	}
-	defer historyFile.Close()
-	csvReader := csv.NewReader(historyFile)
-	records, err := csvReader.ReadAll()
-	if err != nil {
-		context.String(http.StatusInternalServerError, "Неправильный формат данных в файле истории")
-		return
+}
+
+func getTestTimeFromHistory(storeObj store.Store) gin.HandlerFunc {
+
+	return func(context *gin.Context) {
+		id := context.Param("id")
+
+		start, end, err := storeObj.FindTestTimeFromHistory(id)
+
+		processMiddlewareError(context, err)
+		context.JSON(http.StatusOK, store.TestQuery{Id: id, StartTime: start.Format(load.TimeFormat),
+			EndTime: end.Format(load.TimeFormat)})
 	}
-	for i := 1; i < len(records); i++ {
-		if records[i][0] == id {
-			start, err1 := strconv.ParseInt(records[i][1], 10, 64)
-			end, err2 := strconv.ParseInt(records[i][2], 10, 64)
-			if err1 != nil || err2 != nil {
-				context.String(http.StatusInternalServerError, "Неправильный формат данных в файле истории")
-				return
-			}
-			context.String(http.StatusOK, "{\"dt_from\": \"%s\", \"dt_to\": \"%s\"}",
-				time.Unix(start, 0).Format(load.TimeFormat),
-				time.Unix(end, 0).Format(load.TimeFormat))
+}
+
+func getAllTestsFromHistory(storeObj store.Store) gin.HandlerFunc {
+
+	return func(context *gin.Context) {
+		tests, err := storeObj.FindAllTestsFromHistory()
+
+		processMiddlewareError(context, err)
+
+		context.JSON(http.StatusOK, tests)
+	}
+}
+
+func processMiddlewareError(context *gin.Context, err error) {
+	if err != nil {
+		var internalErr *store.InternalError
+		if errors.As(err, &internalErr) {
+			context.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+		var notFoundErr *store.NotFoundError
+		if errors.As(err, &notFoundErr) {
+			context.String(http.StatusNotFound, err.Error())
 			return
 		}
 	}
-	context.String(http.StatusNotFound, "Тест с таким id не найден")
 }
 
-func getTestTimeFromHistory(context *gin.Context) {
-	id := context.Param("id")
-	historyFile, err := os.Open(load.TestHistoryFileName)
-	if err != nil {
-		context.String(http.StatusInternalServerError, "Не найден файл с историей тестов")
-		return
-	}
-	defer historyFile.Close()
-	csvReader := csv.NewReader(historyFile)
-	records, err := csvReader.ReadAll()
-	if err != nil {
-		context.String(http.StatusInternalServerError, "Неправильный формат данных в файле истории")
-		return
-	}
-	for i := 1; i < len(records); i++ {
-		if records[i][0] == id {
-			start, err1 := strconv.ParseInt(records[i][1], 10, 64)
-			end, err2 := strconv.ParseInt(records[i][2], 10, 64)
-			if err1 != nil || err2 != nil {
-				context.String(http.StatusInternalServerError, "Неправильный формат данных в файле истории")
-				return
-			}
-			context.JSON(http.StatusOK, testQuery{id, time.Unix(start, 0).Format(load.TimeFormat),
-				time.Unix(end, 0).Format(load.TimeFormat)})
-			return
-		}
-	}
-	context.String(http.StatusNotFound, "Тест с таким id не найден")
-}
+func runTest(name string, store store.Store) (int, error) {
+	test, err := store.FindTest(name)
 
-func getAllTestsFromHistory(context *gin.Context) {
-	var tests []testQuery
-	historyFile, err := os.Open(load.TestHistoryFileName)
 	if err != nil {
-		context.String(http.StatusInternalServerError, "Не найден файл с историей тестов")
-		return
+		return 0, err
 	}
-	defer historyFile.Close()
-	csvReader := csv.NewReader(historyFile)
-	records, err := csvReader.ReadAll()
-	if err != nil {
-		context.String(http.StatusInternalServerError, "Неправильный формат данных в файле истории")
-		return
-	}
-	for i := 1; i < len(records); i++ {
-		start, err1 := strconv.ParseInt(records[i][1], 10, 64)
-		end, err2 := strconv.ParseInt(records[i][2], 10, 64)
-		if err1 != nil || err2 != nil {
-			context.String(http.StatusInternalServerError, "Неправильный формат данных в файле истории")
-			return
-		}
-		tests = append(tests, testQuery{records[i][0], time.Unix(start, 0).Format(load.TimeFormat),
-			time.Unix(end, 0).Format(load.TimeFormat)})
-	}
-	context.JSON(http.StatusOK, tests)
-}
 
-type testQuery struct {
-	Id        string
-	StartTime string
-	EndTime   string
-}
+	load.PrepareTest(test)
 
-func generateTestId(historyFile *os.File) (int, error) {
-	csvReader := csv.NewReader(historyFile)
-	records, err := csvReader.ReadAll()
+	testId, err := store.FindNextTestId()
+
 	if err != nil {
-		return 0, errors.New("Неправильный формат данных в файле истории")
+		return 0, err
 	}
-	testId := 1
-	for i := 1; i < len(records); i++ {
-		id, err := strconv.Atoi(records[i][0])
-		if err != nil {
-			return 0, errors.New("Неправильный формат данных в файле истории")
-		}
-		if id > testId {
-			testId = id
-		}
-	}
-	testId++
+	go func(testId int) {
+		startTime := test.Run(testId)
+		store.InsertTest(testId, startTime, time.Now().Unix())
+	}(testId)
+
 	return testId, nil
 }
