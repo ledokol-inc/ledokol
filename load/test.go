@@ -37,7 +37,7 @@ func PrepareTest(test *Test) {
 	}
 
 	test.stopUserChannel = make(chan bool)
-	if !strings.Contains(test.Name, "tstub") {
+	if !strings.Contains(test.ScenariosName, "tstub") {
 		test.consumer = kafkah.NewConsumer()
 	}
 }

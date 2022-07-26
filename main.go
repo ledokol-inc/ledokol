@@ -4,10 +4,12 @@ import (
 	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"io"
 	"ledokol/load"
 	"ledokol/store"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 )
@@ -15,6 +17,11 @@ import (
 func main() {
 
 	storeObj := store.NewFileStore("res")
+
+	serverLogFile, _ := os.Create("server.log")
+
+	gin.DefaultWriter = io.MultiWriter(serverLogFile, os.Stdout)
+	gin.DefaultErrorWriter = io.MultiWriter(serverLogFile, os.Stdout)
 
 	router := gin.Default()
 
@@ -33,6 +40,8 @@ func main() {
 			} else {
 				c.String(http.StatusOK, "Тест запущен. ID теста - "+strconv.Itoa(testId))
 			}
+		} else if action == "stop" {
+			//TODO
 		}
 	})
 	router.GET("/test/history/pc/:id", getPCCompatibleTestInfo(storeObj))

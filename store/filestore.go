@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"ledokol/load"
+	"log"
 	"os"
 	"strconv"
 	"time"
@@ -22,8 +23,9 @@ func NewFileStore(resPath string) *FileStore {
 
 func (store *FileStore) FindTest(name string) (*load.Test, error) {
 	result := new(load.Test)
-	data, err := os.ReadFile(name)
+	data, err := os.ReadFile(fmt.Sprintf("%s/tests/%s.json", store.resPath, name))
 	if err != nil {
+		log.Println(err.Error())
 		return nil, &NotFoundError{errors.New("Файл с описанием теста не найден")}
 	}
 	err = json.Unmarshal(data, &result)
