@@ -1,126 +1,101 @@
 package main
 
 import (
-	"errors"
+	"fmt"
 	"github.com/gin-gonic/gin"
+	consulapi "github.com/hashicorp/consul/api"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"io"
 	"ledokol/load"
-	"ledokol/store"
 	"log"
 	"net/http"
 	"os"
-	"strconv"
-	"time"
 )
 
 func main() {
 
-	storeObj := store.NewFileStore("res")
-
 	serverLogFile, _ := os.Create("server.log")
+
+	var runningTests []load.Test
+
+	port := 1454
 
 	gin.DefaultWriter = io.MultiWriter(serverLogFile, os.Stdout)
 	gin.DefaultErrorWriter = io.MultiWriter(serverLogFile, os.Stdout)
 
+	registerInConsul(port)
+
 	router := gin.Default()
 
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
-	router.GET("/test/history", getAllTestsFromHistory(storeObj))
-	router.GET("/test/history/:id", getTestTimeFromHistory(storeObj))
-	router.POST("/test/catalog/:name", func(c *gin.Context) {
-		name := c.Param("name")
-		action := c.Query("action")
-		if action == "run" {
+	router.GET("/health", func(c *gin.Context) {
+		c.String(http.StatusOK, "Consul check")
+	})
+	router.POST("/run", func(c *gin.Context) {
+		var test load.Test
+		err := c.BindJSON(&test)
+		if err != nil {
+			c.String(http.StatusInternalServerError, err.Error())
+		}
+		err = runTest(&test)
 
-			testId, err := runTest(name, storeObj)
-
-			if err != nil {
-				processMiddlewareError(c, err)
-			} else {
-				c.String(http.StatusOK, "Тест запущен. ID теста - "+strconv.Itoa(testId))
-			}
-		} else if action == "stop" {
-			//TODO
+		if err != nil {
+			c.String(http.StatusInternalServerError, err.Error())
+			//processMiddlewareError(c, err)
+		} else {
+			c.String(http.StatusOK, "Тест запущен")
+			runningTests = append(runningTests, test)
 		}
 	})
-	router.GET("/test/history/pc/:id", getPCCompatibleTestInfo(storeObj))
 
-	err := router.Run(":1454")
+	/*router.POST("/stop/:name", func(c *gin.Context) {
+		name := c.Param("name")
+	}*/
+
+	err := router.Run(fmt.Sprintf(":%d", port))
 	log.Fatalf("ListenAndServe(): %v", err)
 }
 
-func getPCCompatibleTestInfo(storeObj store.Store) gin.HandlerFunc {
-
-	return func(context *gin.Context) {
-		id := context.Param("id")
-
-		start, end, err := storeObj.FindTestTimeFromHistory(id)
-
-		processMiddlewareError(context, err)
-		context.String(http.StatusOK, "{\"dt_from\": \"%s\", \"dt_to\": \"%s\"}",
-			start.Format(load.TimeFormat),
-			end.Format(load.TimeFormat))
-	}
-}
-
-func getTestTimeFromHistory(storeObj store.Store) gin.HandlerFunc {
-
-	return func(context *gin.Context) {
-		id := context.Param("id")
-
-		start, end, err := storeObj.FindTestTimeFromHistory(id)
-
-		processMiddlewareError(context, err)
-		context.JSON(http.StatusOK, store.TestQuery{Id: id, StartTime: start.Format(load.TimeFormat),
-			EndTime: end.Format(load.TimeFormat)})
-	}
-}
-
-func getAllTestsFromHistory(storeObj store.Store) gin.HandlerFunc {
-
-	return func(context *gin.Context) {
-		tests, err := storeObj.FindAllTestsFromHistory()
-
-		processMiddlewareError(context, err)
-
-		context.JSON(http.StatusOK, tests)
-	}
-}
-
-func processMiddlewareError(context *gin.Context, err error) {
-	if err != nil {
-		var internalErr *store.InternalError
-		if errors.As(err, &internalErr) {
-			context.String(http.StatusInternalServerError, err.Error())
-			return
-		}
-		var notFoundErr *store.NotFoundError
-		if errors.As(err, &notFoundErr) {
-			context.String(http.StatusNotFound, err.Error())
-			return
-		}
-	}
-}
-
-func runTest(name string, store store.Store) (int, error) {
-	test, err := store.FindTest(name)
-
-	if err != nil {
-		return 0, err
-	}
-
+func runTest(test *load.Test) error {
 	load.PrepareTest(test)
 
-	testId, err := store.FindNextTestId()
+	go func() {
+		test.Run()
+	}()
+
+	return nil
+}
+
+func registerInConsul(port int) {
+	config := consulapi.DefaultConfig()
+	config.Address = os.Getenv("consul_server_address")
+	consul, err := consulapi.NewClient(config)
 
 	if err != nil {
-		return 0, err
+		log.Fatal(err.Error())
 	}
-	go func(testId int) {
-		startTime := test.Run(testId)
-		store.InsertTest(testId, startTime, time.Now().Unix())
-	}(testId)
 
-	return testId, nil
+	serviceID := "helloworld-server"
+	address := os.Getenv("hostname")
+
+	registration := &consulapi.AgentServiceRegistration{
+		ID:      serviceID,
+		Name:    "generator",
+		Port:    port,
+		Address: address,
+		Check: &consulapi.AgentServiceCheck{
+			HTTP:     fmt.Sprintf("http://%s:%d/health", address, port),
+			Interval: "15s",
+			Timeout:  "20s",
+		},
+		Tags: []string{"prometheus_monitoring_endpoint=/metrics"},
+	}
+
+	regiErr := consul.Agent().ServiceRegister(registration)
+
+	if regiErr != nil {
+		log.Fatalf("Failed to register service: %s:%v %s", address, port, regiErr.Error())
+	} else {
+		log.Printf("Successfully register service: %s:%v", address, port)
+	}
 }

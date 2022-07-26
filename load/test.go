@@ -3,7 +3,6 @@ package load
 import (
 	"ledokol/kafkah"
 	"math/rand"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -21,7 +20,7 @@ type Test struct {
 	Steps           []TestStep
 	TotalDuration   float64
 	stopUserChannel chan bool
-	id              string
+	Id              string
 }
 
 func PrepareTest(test *Test) {
@@ -42,9 +41,8 @@ func PrepareTest(test *Test) {
 	}
 }
 
-func (test *Test) Run(id int) int64 {
-	test.id = strconv.Itoa(id)
-	usersCountMetric.WithLabelValues(test.id).Set(0)
+func (test *Test) Run() int64 {
+	usersCountMetric.WithLabelValues(test.Id).Set(0)
 	if test.consumer != nil {
 		go test.consumer.ProcessConsume()
 		go test.consumer.DeleteOldMessages(10)
@@ -107,14 +105,14 @@ func (test *Test) StartUsers(count int) {
 				producer = kafkah.NewProducer()
 			}
 			rand.Seed(time.Now().UnixNano())
-			usersCountMetric.WithLabelValues(test.id).Inc()
+			usersCountMetric.WithLabelValues(test.Id).Inc()
 			for {
 				timeBeforeTest := time.Now().UnixMilli()
 				scenarioNumber := rand.Intn(len(test.Scenarios))
 				if test.consumer != nil {
-					test.Scenarios[scenarioNumber].Process(producer, test.consumer, test.id)
+					test.Scenarios[scenarioNumber].Process(producer, test.consumer, test.Id)
 				} else {
-					test.Scenarios[scenarioNumber].ProcessHttp(test.id)
+					test.Scenarios[scenarioNumber].ProcessHttp(test.Id)
 				}
 				currentPacing := ((rand.Float64()*2-1)*test.PacingDelta + 1) * test.Pacing
 				timeToSleep := int64(currentPacing*1000) - time.Now().UnixMilli() + timeBeforeTest
@@ -123,7 +121,7 @@ func (test *Test) StartUsers(count int) {
 				}
 				select {
 				case _ = <-test.stopUserChannel:
-					usersCountMetric.WithLabelValues(test.id).Dec()
+					usersCountMetric.WithLabelValues(test.Id).Dec()
 					if test.consumer != nil {
 						producer.Close()
 					}
