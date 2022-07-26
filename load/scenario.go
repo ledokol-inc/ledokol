@@ -90,8 +90,7 @@ func (scenario *Scenario) ProcessHttp(testId string) {
 }
 
 type Step struct {
-	Name     string
-	FileName string
-	Message  string `json:"body"`
-	Url      string
+	Name    string
+	Message string `json:"body"`
+	Url     string
 }

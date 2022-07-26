@@ -7,9 +7,7 @@ import (
 
 type Store interface {
 	FindTest(name string) (*load.Test, error)
-	FindScenarios(name string) ([]load.Scenario, error)
-	InsertTest(id int, startTime int64, endTime int64) error
-	FindNextTestId() (int, error)
+	InsertTest(startTime int64, endTime int64) (int64, error)
 	FindTestTimeFromHistory(string) (time.Time, time.Time, error)
 	FindAllTestsFromHistory() ([]TestQuery, error)
 }

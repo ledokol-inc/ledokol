@@ -42,15 +42,13 @@ func PrepareTest(test *Test) {
 	}
 }
 
-func (test *Test) Run(id int) int64 {
-	test.id = strconv.Itoa(id)
+func (test *Test) Run(id int64) {
+	test.id = strconv.FormatInt(id, 10)
 	usersCountMetric.WithLabelValues(test.id).Set(0)
 	if test.consumer != nil {
 		go test.consumer.ProcessConsume()
 		go test.consumer.DeleteOldMessages(10)
 	}
-
-	startTime := time.Now().Unix()
 
 	for _, step := range test.Steps {
 		if step.Action == "start" {
@@ -65,8 +63,6 @@ func (test *Test) Run(id int) int64 {
 	if test.consumer != nil {
 		test.consumer.Close()
 	}
-
-	return startTime
 }
 
 type TestStep struct {

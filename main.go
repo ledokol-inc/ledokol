@@ -16,7 +16,7 @@ import (
 
 func main() {
 
-	storeObj := store.NewFileStore("res")
+	storeObj := store.NewBoltStore("ledokol.db")
 
 	serverLogFile, _ := os.Create("server.log")
 
@@ -38,7 +38,7 @@ func main() {
 			if err != nil {
 				processMiddlewareError(c, err)
 			} else {
-				c.String(http.StatusOK, "Тест запущен. ID теста - "+strconv.Itoa(testId))
+				c.String(http.StatusOK, "Тест запущен. ID теста - "+strconv.FormatInt(testId, 10))
 			}
 		} else if action == "stop" {
 			//TODO
@@ -103,7 +103,7 @@ func processMiddlewareError(context *gin.Context, err error) {
 	}
 }
 
-func runTest(name string, store store.Store) (int, error) {
+func runTest(name string, store store.Store) (int64, error) {
 	test, err := store.FindTest(name)
 
 	if err != nil {
@@ -112,14 +112,17 @@ func runTest(name string, store store.Store) (int, error) {
 
 	load.PrepareTest(test)
 
-	testId, err := store.FindNextTestId()
+	startTime := time.Now().Unix()
+
+	testId, err := store.InsertTest(startTime, startTime)
 
 	if err != nil {
 		return 0, err
 	}
-	go func(testId int) {
-		startTime := test.Run(testId)
-		store.InsertTest(testId, startTime, time.Now().Unix())
+
+	go func(testId int64) {
+		test.Run(testId)
+		//TODO Update time and status running store.InsertTest(testId, startTime, time.Now().Unix())
 	}(testId)
 
 	return testId, nil
