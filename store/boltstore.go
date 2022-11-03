@@ -34,6 +34,43 @@ func (store *BoltStore) FindTest(name string) (*load.Test, error) {
 	}
 }
 
+func (store *BoltStore) FindAllTestsFromCatalog() ([]load.Test, error) {
+
+	db, err := storm.Open(store.dbName)
+	if err == nil {
+		defer db.Close()
+		testBucket := db.From("Tests")
+		var tests []load.Test
+		err = testBucket.All(&tests)
+		if err != nil {
+			return nil, &InternalError{err}
+		}
+		return tests, nil
+	} else {
+		return nil, &InternalError{errors.New("Не удалось открыть базу данных")}
+	}
+}
+
+func (store *BoltStore) InsertTestInCatalog(test *load.Test) error {
+	db, err := storm.Open(store.dbName)
+	if err == nil {
+		testBucket := db.From("Tests")
+		err = testBucket.Save(&test)
+
+		if err1 := db.Close(); err1 != nil {
+			return &InternalError{errors.New("Не удалось закрыть базу данных")}
+		}
+
+		if err != nil {
+			return &InternalError{err}
+		}
+
+		return nil
+	} else {
+		return &InternalError{errors.New("Не удалось открыть базу данных")}
+	}
+}
+
 func (store *BoltStore) InsertTest(startTime int64, endTime int64) (int64, error) {
 	db, err := storm.Open(store.dbName)
 	if err == nil {
@@ -70,7 +107,7 @@ func (store *BoltStore) FindAllTestsFromHistory() ([]TestQuery, error) {
 			return nil, &InternalError{err}
 		}
 
-		var result []TestQuery
+		result := make([]TestQuery, 0)
 
 		for i := 0; i < len(historyRaws); i++ {
 			result = append(result, TestQuery{Id: strconv.FormatInt(historyRaws[i].ID, 10),

@@ -10,6 +10,8 @@ type Store interface {
 	InsertTest(startTime int64, endTime int64) (int64, error)
 	FindTestTimeFromHistory(string) (time.Time, time.Time, error)
 	FindAllTestsFromHistory() ([]TestQuery, error)
+	FindAllTestsFromCatalog() ([]load.Test, error)
+	InsertTestInCatalog(test *load.Test) error
 }
 
 type InternalError struct {

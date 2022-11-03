@@ -28,6 +28,8 @@ func main() {
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	router.GET("/test/history", getAllTestsFromHistory(storeObj))
 	router.GET("/test/history/:id", getTestTimeFromHistory(storeObj))
+	router.GET("/test/catalog", getAllTestsFromCatalog(storeObj))
+	router.POST("/test/catalog", insertTestInCatalog(storeObj))
 	router.POST("/test/catalog/:name", func(c *gin.Context) {
 		name := c.Param("name")
 		action := c.Query("action")
@@ -54,7 +56,6 @@ func getPCCompatibleTestInfo(storeObj store.Store) gin.HandlerFunc {
 
 	return func(context *gin.Context) {
 		id := context.Param("id")
-
 		start, end, err := storeObj.FindTestTimeFromHistory(id)
 
 		processMiddlewareError(context, err)
@@ -85,6 +86,32 @@ func getAllTestsFromHistory(storeObj store.Store) gin.HandlerFunc {
 		processMiddlewareError(context, err)
 
 		context.JSON(http.StatusOK, tests)
+	}
+}
+
+func getAllTestsFromCatalog(storeObj store.Store) gin.HandlerFunc {
+
+	return func(context *gin.Context) {
+		tests, err := storeObj.FindAllTestsFromCatalog()
+
+		processMiddlewareError(context, err)
+
+		context.JSON(http.StatusOK, tests)
+	}
+}
+
+func insertTestInCatalog(storeObj store.Store) gin.HandlerFunc {
+
+	return func(context *gin.Context) {
+		var test load.Test
+		err := context.BindJSON(&test)
+		if err == nil {
+			err = storeObj.InsertTestInCatalog(&test)
+		}
+
+		if err != nil {
+			processMiddlewareError(context, err)
+		}
 	}
 }
 
