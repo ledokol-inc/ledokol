@@ -18,7 +18,7 @@ func main() {
 
 	var runningTests []load.Test
 
-	port := 1454
+	port := 1455
 
 	gin.DefaultWriter = io.MultiWriter(serverLogFile, os.Stdout)
 	gin.DefaultErrorWriter = io.MultiWriter(serverLogFile, os.Stdout)
@@ -32,10 +32,20 @@ func main() {
 		c.String(http.StatusOK, "Consul check")
 	})
 	router.POST("/run", func(c *gin.Context) {
-		var test load.Test
-		err := c.BindJSON(&test)
+		/*var test load.Test
+		err := c.BindJSON(&test)*/
+		var request RunRequest
+		err := c.BindJSON(&request)
 		if err != nil {
 			c.String(http.StatusInternalServerError, err.Error())
+		}
+		test := request.Test
+		for i := range request.Scenarios {
+			if request.Scenarios[i].ScenarioType == "http" {
+				test.Scenarios = append(test.Scenarios, &request.Scenarios[i].SimpleScenario)
+			} else {
+				test.Scenarios = append(test.Scenarios, &load.KafkaScenario{SimpleScenario: request.Scenarios[i].SimpleScenario})
+			}
 		}
 		err = runTest(&test)
 
@@ -57,7 +67,7 @@ func main() {
 }
 
 func runTest(test *load.Test) error {
-	load.PrepareTest(test)
+	test.PrepareTest()
 
 	go func() {
 		test.Run()
@@ -79,16 +89,19 @@ func registerInConsul(port int) {
 	address := os.Getenv("hostname")
 
 	registration := &consulapi.AgentServiceRegistration{
-		ID:      serviceID,
-		Name:    "generator",
-		Port:    port,
-		Address: address,
+		ID:   serviceID,
+		Name: "generator",
+		Port: port,
 		Check: &consulapi.AgentServiceCheck{
 			HTTP:     fmt.Sprintf("http://%s:%d/health", address, port),
 			Interval: "15s",
 			Timeout:  "20s",
 		},
 		Tags: []string{"prometheus_monitoring_endpoint=/metrics"},
+	}
+
+	if address != "" {
+		registration.Address = address
 	}
 
 	regiErr := consul.Agent().ServiceRegister(registration)
@@ -98,4 +111,14 @@ func registerInConsul(port int) {
 	} else {
 		log.Printf("Successfully register service: %s:%v", address, port)
 	}
+}
+
+type RunRequest struct {
+	load.Test
+	Scenarios []RunScenarioRequest
+}
+
+type RunScenarioRequest struct {
+	load.SimpleScenario
+	ScenarioType string
 }
