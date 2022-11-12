@@ -16,7 +16,7 @@ func main() {
 
 	serverLogFile, _ := os.Create("server.log")
 
-	var runningTests []load.Test
+	runningTests := make(map[string]*load.Test)
 
 	port := 1455
 
@@ -34,18 +34,10 @@ func main() {
 	router.POST("/run", func(c *gin.Context) {
 		/*var test load.Test
 		err := c.BindJSON(&test)*/
-		var request RunRequest
-		err := c.BindJSON(&request)
+		var test load.Test
+		err := c.BindJSON(&test)
 		if err != nil {
 			c.String(http.StatusInternalServerError, err.Error())
-		}
-		test := request.Test
-		for i := range request.Scenarios {
-			if request.Scenarios[i].ScenarioType == "http" {
-				test.Scenarios = append(test.Scenarios, &request.Scenarios[i].SimpleScenario)
-			} else {
-				test.Scenarios = append(test.Scenarios, &load.KafkaScenario{SimpleScenario: request.Scenarios[i].SimpleScenario})
-			}
 		}
 		err = runTest(&test)
 
@@ -54,13 +46,21 @@ func main() {
 			//processMiddlewareError(c, err)
 		} else {
 			c.String(http.StatusOK, "Тест запущен")
-			runningTests = append(runningTests, test)
+			runningTests[test.Id] = &test
 		}
 	})
 
-	/*router.POST("/stop/:name", func(c *gin.Context) {
-		name := c.Param("name")
-	}*/
+	router.POST("/:id/stop", func(c *gin.Context) {
+		id := c.Param("id")
+		test, exist := runningTests[id]
+		if exist {
+			test.Stop()
+			delete(runningTests, id)
+			c.String(http.StatusOK, "Остановка теста запущена")
+		} else {
+			c.String(http.StatusNotFound, "Тест с таким id не запущен")
+		}
+	})
 
 	err := router.Run(fmt.Sprintf(":%d", port))
 	log.Fatalf("ListenAndServe(): %v", err)
@@ -111,14 +111,4 @@ func registerInConsul(port int) {
 	} else {
 		log.Printf("Successfully register service: %s:%v", address, port)
 	}
-}
-
-type RunRequest struct {
-	load.Test
-	Scenarios []RunScenarioRequest
-}
-
-type RunScenarioRequest struct {
-	load.SimpleScenario
-	ScenarioType string
 }
