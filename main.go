@@ -77,6 +77,9 @@ func runTest(test *load.Test) error {
 }
 
 func registerInConsul(port int) {
+
+	name := "generator"
+
 	config := consulapi.DefaultConfig()
 	config.Address = os.Getenv("consul_server_address")
 	consul, err := consulapi.NewClient(config)
@@ -85,12 +88,13 @@ func registerInConsul(port int) {
 		log.Fatal(err.Error())
 	}
 
-	serviceID := "helloworld-server"
-	address := os.Getenv("hostname")
+	address := os.Getenv("HOSTNAME")
+
+	serviceID := fmt.Sprintf("%s-%s-%d", name, address, port)
 
 	registration := &consulapi.AgentServiceRegistration{
 		ID:   serviceID,
-		Name: "generator",
+		Name: name,
 		Port: port,
 		Check: &consulapi.AgentServiceCheck{
 			HTTP:     fmt.Sprintf("http://%s:%d/health", address, port),
