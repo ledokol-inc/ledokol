@@ -15,6 +15,13 @@ type Script struct {
 	Steps []*Step
 }
 
+type Step struct {
+	Name     string
+	FileName string
+	Message  string `json:"body"`
+	Url      string
+}
+
 func (script *Script) Process(producer *kafkah.ProducerWrapper, consumer *kafkah.ConsumerWrapper, testName string) (bool, int64) {
 	userId := rand.Int63n(99999999) + 100000000
 	sessionId := rand.Int63n(99999999) + 100000000
@@ -78,11 +85,4 @@ func (script *Script) ProcessHttp(testName string) (bool, int64) {
 	}
 
 	return success, startIterationTime
-}
-
-type Step struct {
-	Name     string
-	FileName string
-	Message  string `json:"body"`
-	Url      string
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	consulapi "github.com/hashicorp/consul/api"
@@ -10,6 +11,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 )
 
 func main() {
@@ -23,7 +26,16 @@ func main() {
 	gin.DefaultWriter = io.MultiWriter(serverLogFile, os.Stdout)
 	gin.DefaultErrorWriter = io.MultiWriter(serverLogFile, os.Stdout)
 
-	registerInConsul(port)
+	consulAgent, serviceId := registerInConsul(port)
+
+	interruptChan := make(chan os.Signal)
+	signal.Notify(interruptChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-interruptChan
+		consulAgent.ServiceDeregister(serviceId)
+		log.Printf("Service deregistered")
+		os.Exit(1)
+	}()
 
 	router := gin.Default()
 
@@ -39,7 +51,7 @@ func main() {
 		if err != nil {
 			c.String(http.StatusInternalServerError, err.Error())
 		}
-		err = runTest(&test)
+		err = runTest(&test, runningTests, consulAgent)
 
 		if err != nil {
 			c.String(http.StatusInternalServerError, err.Error())
@@ -52,10 +64,7 @@ func main() {
 
 	router.POST("/:id/stop", func(c *gin.Context) {
 		id := c.Param("id")
-		test, exist := runningTests[id]
-		if exist {
-			test.Stop()
-			delete(runningTests, id)
+		if stopTest(id, runningTests) {
 			c.String(http.StatusOK, "Остановка теста запущена")
 		} else {
 			c.String(http.StatusNotFound, "Тест с таким id не запущен")
@@ -66,17 +75,32 @@ func main() {
 	log.Fatalf("ListenAndServe(): %v", err)
 }
 
-func runTest(test *load.Test) error {
+func runTest(test *load.Test, runningTests map[string]*load.Test, agent *consulapi.Agent) error {
 	test.PrepareTest()
 
-	go func() {
+	go func(runningTests map[string]*load.Test, test *load.Test) {
 		test.Run()
-	}()
+		if _, contains := runningTests[test.Id]; contains {
+			delete(runningTests, test.Id)
+			sendEndTestRequestToMain(agent, test.Id)
+		}
+	}(runningTests, test)
 
 	return nil
 }
 
-func registerInConsul(port int) {
+func stopTest(testId string, runningTests map[string]*load.Test) bool {
+	test, exist := runningTests[testId]
+	if exist {
+		delete(runningTests, testId)
+		test.Stop()
+		return true
+	} else {
+		return false
+	}
+}
+
+func registerInConsul(port int) (*consulapi.Agent, string) {
 
 	name := "generator"
 
@@ -89,7 +113,6 @@ func registerInConsul(port int) {
 	}
 
 	address := os.Getenv("HOSTNAME")
-
 	serviceID := fmt.Sprintf("%s-%s-%d", name, address, port)
 
 	registration := &consulapi.AgentServiceRegistration{
@@ -113,6 +136,30 @@ func registerInConsul(port int) {
 	if regiErr != nil {
 		log.Fatalf("Failed to register service: %s:%v %s", address, port, regiErr.Error())
 	} else {
-		log.Printf("Successfully register service: %s:%v", address, port)
+		log.Printf("Successfully register service: %s:%v\n", address, port)
 	}
+	return consul.Agent(), serviceID
+}
+
+func sendEndTestRequestToMain(agent *consulapi.Agent, testId string) {
+	service, _, err := agent.Service("ledokol-main", &consulapi.QueryOptions{})
+	if err != nil {
+		log.Printf("Failed to find ledokol-main: %s\n", err.Error())
+		return
+	}
+
+	address := service.Address
+	port := service.Port
+	url := fmt.Sprintf("http://%s:%d/api/testruns/%s/end", address, port, testId)
+	response, err := http.Post(url, "application/json", &bytes.Buffer{})
+	if err != nil {
+		log.Printf("Failed to send end test request to main component: %s\n", err.Error())
+		return
+	}
+	if response.StatusCode != 200 {
+		log.Printf("Status %d when send end test request to main component\n", response.StatusCode)
+		return
+	}
+
+	log.Printf("Successfully sent end test request to main component\n")
 }

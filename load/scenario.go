@@ -16,6 +16,7 @@ type Scenario struct {
 	Script              *Script
 	stopScenarioChannel chan struct{}
 	stopped             atomic.Bool
+	runningUserWait     *sync.WaitGroup
 }
 
 type ScenarioStep struct {
@@ -38,6 +39,7 @@ func (scenario *Scenario) PrepareScenario(totalDuration float64) {
 
 	scenario.stopUserChannel = make(chan bool)
 	scenario.stopScenarioChannel = make(chan struct{})
+	scenario.runningUserWait = &sync.WaitGroup{}
 }
 
 func (scenario *Scenario) StartUsersContinually(totalCount int, countByPeriod int, periodInMillis int, testName string) {
@@ -51,7 +53,9 @@ func (scenario *Scenario) StartUsers(count int, testName string) {
 	for i := 0; i < count; i++ {
 		go func() {
 			if !scenario.stopped.Load() {
+				scenario.runningUserWait.Add(1)
 				scenario.StartUser(testName)
+				scenario.runningUserWait.Done()
 			}
 		}()
 	}
@@ -63,7 +67,6 @@ func (scenario *Scenario) Run(testName string) int64 {
 	for _, step := range scenario.Steps {
 
 		if scenario.stopped.Load() {
-			close(scenario.stopUserChannel)
 			break
 		}
 
@@ -81,6 +84,14 @@ func (scenario *Scenario) Run(testName string) int64 {
 			scenario.StopUsersContinually(step.TotalUsersCount, step.CountUsersByPeriod, int(step.Period*1000))
 		}
 	}
+
+	close(scenario.stopUserChannel)
+
+	if !scenario.stopped.CompareAndSwap(false, true) {
+		<-scenario.stopScenarioChannel
+	}
+
+	scenario.runningUserWait.Wait()
 
 	return startTime
 }
@@ -132,6 +143,8 @@ func (scenario *Scenario) StartUser(testName string) {
 }
 
 func (scenario *Scenario) Stop() {
-	scenario.stopped.Store(true)
-	scenario.stopScenarioChannel <- struct{}{}
+	if scenario.stopped.CompareAndSwap(false, true) {
+		scenario.stopScenarioChannel <- struct{}{}
+		close(scenario.stopScenarioChannel)
+	}
 }

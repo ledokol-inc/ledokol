@@ -1,5 +1,7 @@
 package load
 
+import "sync"
+
 type Test struct {
 	Name          string
 	Scenarios     []*Scenario
@@ -14,13 +16,15 @@ func (test *Test) PrepareTest() {
 }
 
 func (test *Test) Run() {
-	//runningUsers := &sync.WaitGroup{}
+	testWait := &sync.WaitGroup{}
 	for i := range test.Scenarios {
+		testWait.Add(1)
 		go func(scenario *Scenario, testName string) {
-			//usersCountMetric.WithLabelValues(testName, scenario.Name).Set(0)
 			scenario.Run(testName)
+			testWait.Done()
 		}(test.Scenarios[i], test.Name)
 	}
+	testWait.Wait()
 }
 
 func (test *Test) Stop() {
