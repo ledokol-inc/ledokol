@@ -6,38 +6,48 @@ import (
 	"github.com/gin-gonic/gin"
 	consulapi "github.com/hashicorp/consul/api"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"io"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"gopkg.in/natefinch/lumberjack.v2"
+	"ledokol/discovery"
 	"ledokol/load"
-	"log"
+	"ledokol/logger"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 )
 
-func main() {
+const port = 1455
+const logFile = "server.log"
 
-	serverLogFile, _ := os.Create("server.log")
+func main() {
 
 	runningTests := make(map[string]*load.Test)
 
-	port := 1455
+	fileLogger := &lumberjack.Logger{
+		Filename:   logFile,
+		MaxSize:    5,
+		MaxBackups: 10,
+		MaxAge:     14,
+		Compress:   true,
+	}
 
-	gin.DefaultWriter = io.MultiWriter(serverLogFile, os.Stdout)
-	gin.DefaultErrorWriter = io.MultiWriter(serverLogFile, os.Stdout)
+	log.Logger = log.Output(zerolog.MultiLevelWriter(os.Stderr, fileLogger))
 
-	consulAgent, serviceId := registerInConsul(port)
+	router := gin.New()
+	router.Use(logger.Logger())
+
+	consulAgent, serviceId := discovery.RegisterInConsul(port)
 
 	interruptChan := make(chan os.Signal)
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-interruptChan
 		consulAgent.ServiceDeregister(serviceId)
-		log.Printf("Service deregistered")
+		log.Info().Msg("Service deregistered")
 		os.Exit(1)
 	}()
-
-	router := gin.Default()
 
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	router.GET("/health", func(c *gin.Context) {
@@ -47,14 +57,12 @@ func main() {
 		/*var test load.Test
 		err := c.BindJSON(&test)*/
 		var test load.Test
-		err := c.BindJSON(&test)
-		if err != nil {
+		if err := c.BindJSON(&test); err != nil {
 			c.String(http.StatusBadRequest, err.Error())
 			return
 		}
-		err = runTest(&test, runningTests, consulAgent)
 
-		if err != nil {
+		if err := runTest(&test, runningTests, consulAgent); err != nil {
 			c.String(http.StatusInternalServerError, err.Error())
 			//processMiddlewareError(c, err)
 		} else {
@@ -73,7 +81,7 @@ func main() {
 	})
 
 	err := router.Run(fmt.Sprintf(":%d", port))
-	log.Fatalf("ListenAndServe(): %v", err)
+	log.Fatal().Err(err).Msg("ListenAndServe() error")
 }
 
 func runTest(test *load.Test, runningTests map[string]*load.Test, agent *consulapi.Agent) error {
@@ -101,51 +109,10 @@ func stopTest(testId string, runningTests map[string]*load.Test) bool {
 	}
 }
 
-func registerInConsul(port int) (*consulapi.Agent, string) {
-
-	name := "generator"
-
-	config := consulapi.DefaultConfig()
-	config.Address = os.Getenv("consul_server_address")
-	consul, err := consulapi.NewClient(config)
-
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-
-	address := os.Getenv("HOSTNAME")
-	serviceID := fmt.Sprintf("%s-%s-%d", name, address, port)
-
-	registration := &consulapi.AgentServiceRegistration{
-		ID:   serviceID,
-		Name: name,
-		Port: port,
-		Check: &consulapi.AgentServiceCheck{
-			HTTP:     fmt.Sprintf("http://%s:%d/health", address, port),
-			Interval: "15s",
-			Timeout:  "20s",
-		},
-		Tags: []string{"prometheus_monitoring_endpoint=/metrics"},
-	}
-
-	if address != "" {
-		registration.Address = address
-	}
-
-	regiErr := consul.Agent().ServiceRegister(registration)
-
-	if regiErr != nil {
-		log.Fatalf("Failed to register service: %s:%v %s", address, port, regiErr.Error())
-	} else {
-		log.Printf("Successfully register service: %s:%v\n", address, port)
-	}
-	return consul.Agent(), serviceID
-}
-
 func sendEndTestRequestToMain(agent *consulapi.Agent, testId string) {
 	service, _, err := agent.Service("ledokol-main", &consulapi.QueryOptions{})
 	if err != nil {
-		log.Printf("Failed to find ledokol-main: %s\n", err.Error())
+		log.Error().Err(err).Msg("Failed to find ledokol-main")
 		return
 	}
 
@@ -154,13 +121,13 @@ func sendEndTestRequestToMain(agent *consulapi.Agent, testId string) {
 	url := fmt.Sprintf("http://%s:%d/api/testruns/%s/end", address, port, testId)
 	response, err := http.Post(url, "application/json", &bytes.Buffer{})
 	if err != nil {
-		log.Printf("Failed to send end test request to main component: %s\n", err.Error())
+		log.Error().Err(err).Msg("Failed to send end test request to main component")
 		return
 	}
 	if response.StatusCode != 200 {
-		log.Printf("Status %d when send end test request to main component\n", response.StatusCode)
+		log.Info().Msgf("Status %d when send end test request to main component", response.StatusCode)
 		return
 	}
 
-	log.Printf("Successfully sent end test request to main component\n")
+	log.Info().Msg("Successfully sent end test request to main component")
 }

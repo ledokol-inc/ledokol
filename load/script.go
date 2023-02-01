@@ -2,13 +2,10 @@ package load
 
 import (
 	"bytes"
+	"github.com/rs/zerolog/log"
 	"io"
-	"ledokol/kafkah"
-	"log"
-	"math/rand"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -27,44 +24,6 @@ type Step struct {
 	Timeout    int64
 }
 
-func (script *Script) Process(producer *kafkah.ProducerWrapper, consumer *kafkah.ConsumerWrapper, testName string) (bool, int64) {
-	userId := rand.Int63n(99999999) + 100000000
-	sessionId := rand.Int63n(99999999) + 100000000
-	success := true
-	startIterationTime := time.Now().UnixMilli()
-	for i := 0; i < len(script.Steps); i++ {
-		messageId := userId + rand.Int63n(9999) + 10000
-		changedMessage := kafkah.ReplaceAll([]byte(script.Steps[i].Message), messageId, sessionId, userId)
-		startTime := time.Now().UnixMilli()
-		producer.SendMessage([]byte(changedMessage))
-		//fmt.Printf("Сценарий %s, Шаг %s: сообщение отправлено, message id = %d\n", scenarioName, step.Name, messageId)
-		//currentTime := time.Now().UnixMilli()
-
-		response := consumer.WaitForMessage(strconv.FormatInt(messageId, 10), 8000)
-
-		//fmt.Printf("Сценарий %s, Шаг %s: ", scenarioName, step.Name)
-		if response == "" {
-			failedTransactionCountMetric.WithLabelValues(testName, script.Name, script.Steps[i].Name, "true").Inc()
-			success = false
-			break
-			//fmt.Printf("Прошло 8 секунд, сообщения не было\n")
-		} else {
-			containsFinished := strings.Contains(response, "\"finished\": true")
-			isEnded := i == len(script.Steps)-1
-			if !isEnded && containsFinished || isEnded && !containsFinished {
-				failedTransactionCountMetric.WithLabelValues(testName, script.Name, script.Steps[i].Name, "false").Inc()
-				success = false
-				break
-			} else {
-				successTransactionCountMetric.WithLabelValues(testName, script.Name, script.Steps[i].Name).
-					Observe(float64(time.Now().UnixMilli()-startTime) / 1000.0)
-			}
-			//fmt.Printf("Сообщение получено за %d мс\n", time.Now().UnixMilli()-currentTime)
-		}
-	}
-	return success, startIterationTime
-}
-
 func (script *Script) ProcessHttp(testName string) (bool, int64) {
 	success := true
 	startIterationTime := time.Now().UnixMilli()
@@ -81,7 +40,7 @@ func (script *Script) ProcessHttp(testName string) (bool, int64) {
 		}
 
 		if err != nil {
-			log.Fatalf("%s", err.Error())
+			log.Error().Err(err).Msgf("")
 		}
 
 		for key, value := range step.Headers {
@@ -90,28 +49,37 @@ func (script *Script) ProcessHttp(testName string) (bool, int64) {
 
 		resp, err := step.httpClient.Do(req)
 
-		//fmt.Printf("Сценарий %s, Шаг %s: сообщение отправлено, message id = %d\n", scenarioName, step.Name, messageId)
+		log.Info().Str("test", testName).Str("script", script.Name).
+			Str("step", step.Name).Str("body", step.Message).Msg("Запрос отправлен")
 
-		if err != nil || resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		if err != nil || resp.StatusCode >= 300 {
 			failedTransactionCountMetric.WithLabelValues(testName, script.Name, step.Name, "true").Inc()
 			success = false
 			if err != nil {
-				log.Printf(err.Error())
+				log.Error().Err(err).Str("test", testName).Str("script", script.Name).Str("step", step.Name)
 			} else {
 				body, err := getResponseBody(resp)
-				if err == nil {
-					log.Printf("Получен ответ: %s", body)
+				if err != nil {
+					log.Error().Err(err).Str("test", testName).Str("script", script.Name).
+						Str("step", step.Name).Str("status", strconv.Itoa(resp.StatusCode)).Msg("При попытке чтения ответа произошла ошибка")
 				} else {
-					log.Printf("При попытке чтения ответа произошла ошибка: %s", err.Error())
+					log.Error().Str("test", testName).Str("script", script.Name).
+						Str("step", step.Name).Str("body", body).Str("status", strconv.Itoa(resp.StatusCode)).Msg("Получен ответ")
 				}
 			}
 			break
-			//fmt.Printf("Прошло 8 секунд, сообщения не было\n")
 		} else {
 			successTransactionCountMetric.WithLabelValues(testName, script.Name, step.Name).
 				Observe(float64(time.Now().UnixMilli()-startTime) / 1000.0)
-			resp.Body.Close()
-			//fmt.Printf("Сообщение получено за %d мс\n", time.Now().UnixMilli()-currentTime)
+
+			body, err := getResponseBody(resp)
+			if err != nil {
+				log.Error().Err(err).Str("test", testName).Str("script", script.Name).
+					Str("step", step.Name).Str("status", strconv.Itoa(resp.StatusCode)).Msg("При попытке чтения ответа произошла ошибка")
+			} else {
+				log.Info().Str("test", testName).Str("script", script.Name).
+					Str("step", step.Name).Str("body", body).Str("status", strconv.Itoa(resp.StatusCode)).Msg("Получен ответ")
+			}
 		}
 	}
 
