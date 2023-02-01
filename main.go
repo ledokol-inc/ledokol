@@ -49,7 +49,8 @@ func main() {
 		var test load.Test
 		err := c.BindJSON(&test)
 		if err != nil {
-			c.String(http.StatusInternalServerError, err.Error())
+			c.String(http.StatusBadRequest, err.Error())
+			return
 		}
 		err = runTest(&test, runningTests, consulAgent)
 

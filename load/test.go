@@ -1,6 +1,10 @@
 package load
 
-import "sync"
+import (
+	"net/http"
+	"sync"
+	"time"
+)
 
 type Test struct {
 	Name          string
@@ -12,6 +16,11 @@ type Test struct {
 func (test *Test) PrepareTest() {
 	for i := range test.Scenarios {
 		test.Scenarios[i].PrepareScenario(test.TotalDuration)
+		for _, step := range test.Scenarios[i].Script.Steps {
+			step.httpClient = &http.Client{
+				Timeout: time.Duration(step.Timeout) * time.Millisecond,
+			}
+		}
 	}
 }
 
