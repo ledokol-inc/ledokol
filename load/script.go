@@ -56,7 +56,7 @@ func (script *Script) ProcessHttp(testName string) (bool, int64) {
 			failedTransactionCountMetric.WithLabelValues(testName, script.Name, step.Name, "true").Inc()
 			success = false
 			if err != nil {
-				log.Error().Err(err).Str("test", testName).Str("script", script.Name).Str("step", step.Name)
+				log.Error().Err(err).Str("test", testName).Str("script", script.Name).Str("step", step.Name).Msg("Ошибка отправки запроса")
 			} else {
 				body, err := getResponseBody(resp)
 				if err != nil {
