@@ -15,10 +15,11 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 )
 
-const port = 1455
+const portDefault = 1455
 const logFile = "./logs/server.log"
 
 func main() {
@@ -38,6 +39,13 @@ func main() {
 
 	router := gin.New()
 	router.Use(logger.Logger())
+
+	port, err := strconv.Atoi(os.Getenv("http_port"))
+
+	if err != nil {
+		log.Info().Msgf("Переменная среды http_port не задана или задана неверно, используется порт по умолчанию: %d", portDefault)
+		port = portDefault
+	}
 
 	consulAgent, serviceId := discovery.RegisterInConsul(port)
 
@@ -81,7 +89,7 @@ func main() {
 		}
 	})
 
-	err := router.Run(fmt.Sprintf(":%d", port))
+	err = router.Run(fmt.Sprintf(":%d", port))
 	log.Fatal().Err(err).Msg("ListenAndServe() error")
 }
 
