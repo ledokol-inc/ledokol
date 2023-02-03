@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/base64"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"io"
 	"net/http"
@@ -75,13 +76,9 @@ func (script *Script) ProcessHttp(testName string) (bool, int64) {
 			} else {
 				body, err := getResponseBody(resp)
 				if err != nil {
-					log.Error().Err(err).Str("test", testName).Str("script", script.Name).
-						Str("step", step.Name).Str("status", strconv.Itoa(resp.StatusCode)).
-						Str("requestId", requestId).Msg("При попытке чтения ответа произошла ошибка")
+					logReadResponseError(err, testName, script.Name, step.Name, resp.StatusCode, requestId)
 				} else {
-					log.Error().Str("test", testName).Str("script", script.Name).
-						Str("step", step.Name).Str("body", body).
-						Str("status", strconv.Itoa(resp.StatusCode)).Str("requestId", requestId).Msg("Получен ответ")
+					logReadResponse(err, testName, script.Name, step.Name, resp.StatusCode, requestId, body, true)
 				}
 			}
 			break
@@ -91,13 +88,9 @@ func (script *Script) ProcessHttp(testName string) (bool, int64) {
 
 			body, err := getResponseBody(resp)
 			if err != nil {
-				log.Error().Err(err).Str("test", testName).Str("script", script.Name).
-					Str("step", step.Name).Str("status", strconv.Itoa(resp.StatusCode)).
-					Str("requestId", requestId).Msg("При попытке чтения ответа произошла ошибка")
+				logReadResponseError(err, testName, script.Name, step.Name, resp.StatusCode, requestId)
 			} else {
-				log.Info().Str("test", testName).Str("script", script.Name).
-					Str("step", step.Name).Str("body", body).
-					Str("status", strconv.Itoa(resp.StatusCode)).Str("requestId", requestId).Msg("Получен ответ")
+				logReadResponse(err, testName, script.Name, step.Name, resp.StatusCode, requestId, body, false)
 			}
 		}
 	}
@@ -122,4 +115,22 @@ func randomId(length int) (string, error) {
 	}
 
 	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+func logReadResponseError(err error, testName string, scriptName string, stepName string, status int, requestId string) {
+	log.Error().Err(err).Str("test", testName).Str("script", scriptName).
+		Str("step", stepName).Str("status", strconv.Itoa(status)).
+		Str("requestId", requestId).Msg("При попытке чтения ответа произошла ошибка")
+}
+
+func logReadResponse(err error, testName string, scriptName string, stepName string, status int, requestId string, body string, isError bool) {
+	var event *zerolog.Event
+	if isError {
+		event = log.Error()
+	} else {
+		event = log.Info()
+	}
+	event.Str("test", testName).Str("script", scriptName).
+		Str("step", stepName).Str("body", body).
+		Str("status", strconv.Itoa(status)).Str("requestId", requestId).Msg("Получен ответ")
 }
