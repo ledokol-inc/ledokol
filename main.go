@@ -19,7 +19,7 @@ import (
 )
 
 const port = 1455
-const logFile = "server.log"
+const logFile = "./logs/server.log"
 
 func main() {
 
