@@ -2,12 +2,16 @@ package load
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/base64"
 	"github.com/rs/zerolog/log"
 	"io"
 	"net/http"
 	"strconv"
 	"time"
 )
+
+const requestIdLength = 15
 
 type Script struct {
 	Name  string
@@ -41,30 +45,43 @@ func (script *Script) ProcessHttp(testName string) (bool, int64) {
 
 		if err != nil {
 			log.Error().Err(err).Msgf("")
+			break
 		}
 
 		for key, value := range step.Headers {
 			req.Header.Set(key, value)
 		}
 
+		var requestId string
+
+		if requestId, err = randomId(requestIdLength); err != nil {
+			log.Error().Err(err).Msgf("Не удалось инициализировать request ID")
+			break
+		}
+
 		resp, err := step.httpClient.Do(req)
 
 		log.Info().Str("test", testName).Str("script", script.Name).
-			Str("step", step.Name).Str("body", step.Message).Msg("Запрос отправлен")
+			Str("step", step.Name).Str("body", step.Message).
+			Str("requestId", requestId).Msg("Отправка запроса")
 
 		if err != nil || resp.StatusCode >= 300 {
 			failedTransactionCountMetric.WithLabelValues(testName, script.Name, step.Name, "true").Inc()
 			success = false
 			if err != nil {
-				log.Error().Err(err).Str("test", testName).Str("script", script.Name).Str("step", step.Name).Msg("Ошибка отправки запроса")
+				log.Error().Err(err).Str("test", testName).
+					Str("script", script.Name).Str("step", step.Name).
+					Str("requestId", requestId).Msg("Ошибка отправки запроса")
 			} else {
 				body, err := getResponseBody(resp)
 				if err != nil {
 					log.Error().Err(err).Str("test", testName).Str("script", script.Name).
-						Str("step", step.Name).Str("status", strconv.Itoa(resp.StatusCode)).Msg("При попытке чтения ответа произошла ошибка")
+						Str("step", step.Name).Str("status", strconv.Itoa(resp.StatusCode)).
+						Str("requestId", requestId).Msg("При попытке чтения ответа произошла ошибка")
 				} else {
 					log.Error().Str("test", testName).Str("script", script.Name).
-						Str("step", step.Name).Str("body", body).Str("status", strconv.Itoa(resp.StatusCode)).Msg("Получен ответ")
+						Str("step", step.Name).Str("body", body).
+						Str("status", strconv.Itoa(resp.StatusCode)).Str("requestId", requestId).Msg("Получен ответ")
 				}
 			}
 			break
@@ -75,10 +92,12 @@ func (script *Script) ProcessHttp(testName string) (bool, int64) {
 			body, err := getResponseBody(resp)
 			if err != nil {
 				log.Error().Err(err).Str("test", testName).Str("script", script.Name).
-					Str("step", step.Name).Str("status", strconv.Itoa(resp.StatusCode)).Msg("При попытке чтения ответа произошла ошибка")
+					Str("step", step.Name).Str("status", strconv.Itoa(resp.StatusCode)).
+					Str("requestId", requestId).Msg("При попытке чтения ответа произошла ошибка")
 			} else {
 				log.Info().Str("test", testName).Str("script", script.Name).
-					Str("step", step.Name).Str("body", body).Str("status", strconv.Itoa(resp.StatusCode)).Msg("Получен ответ")
+					Str("step", step.Name).Str("body", body).
+					Str("status", strconv.Itoa(resp.StatusCode)).Str("requestId", requestId).Msg("Получен ответ")
 			}
 		}
 	}
@@ -94,4 +113,13 @@ func getResponseBody(resp *http.Response) (string, error) {
 
 	resp.Body.Close()
 	return string(body), nil
+}
+
+func randomId(length int) (string, error) {
+	b := make([]byte, length)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }

@@ -33,6 +33,7 @@ func main() {
 		Compress:   true,
 	}
 
+	zerolog.TimeFieldFormat = "2006-01-02 15:04:05.000"
 	log.Logger = log.Output(zerolog.MultiLevelWriter(os.Stderr, fileLogger))
 
 	router := gin.New()
