@@ -117,17 +117,18 @@ func (scenario *Scenario) StopUsersContinually(totalCount int, countByPeriod int
 }
 
 func (scenario *Scenario) StartUser(testName string) {
-	rand.Seed(time.Now().UnixNano())
+	userRand := initRand()
 	usersCountMetric.WithLabelValues(testName, scenario.Name).Inc()
+	scriptVariables := scenario.Script.PrepareScript(userRand)
 	for {
 		timeBeforeTest := time.Now().UnixMilli()
-		result, startIterationTime := scenario.Script.ProcessHttp(testName)
+		result, startIterationTime := scenario.Script.ProcessHttp(testName, userRand, scriptVariables)
 		if result {
 			successScenarioCountMetric.WithLabelValues(testName, scenario.Name).Observe(float64(time.Now().UnixMilli()-startIterationTime) / 1000.0)
 		} else {
 			failedScenarioCountMetric.WithLabelValues(testName, scenario.Name).Inc()
 		}
-		currentPacing := ((rand.Float64()*2-1)*scenario.PacingDelta + 1) * scenario.Pacing
+		currentPacing := ((userRand.Float64()*2-1)*scenario.PacingDelta + 1) * scenario.Pacing
 		timeToSleep := int64(currentPacing*1000) - time.Now().UnixMilli() + timeBeforeTest
 		if timeToSleep < 1 {
 			timeToSleep = 1
@@ -147,4 +148,8 @@ func (scenario *Scenario) Stop() {
 		scenario.stopScenarioChannel <- struct{}{}
 		close(scenario.stopScenarioChannel)
 	}
+}
+
+func initRand() *rand.Rand {
+	return rand.New(rand.NewSource(rand.Int63()))
 }
