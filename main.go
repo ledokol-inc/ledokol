@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	consulapi "github.com/hashicorp/consul/api"
+	"github.com/mitchellh/mapstructure"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -12,11 +13,16 @@ import (
 	"ledokol/discovery"
 	"ledokol/load"
 	"ledokol/logger"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
+	"reflect"
+	"regexp"
+	"regexp/syntax"
 	"strconv"
 	"syscall"
+	"time"
 )
 
 const portDefault = 1455
@@ -24,6 +30,7 @@ const logFile = "./logs/server.log"
 
 func main() {
 
+	rand.Seed(time.Now().UnixNano())
 	runningTests := make(map[string]*load.Test)
 
 	fileLogger := &lumberjack.Logger{
@@ -60,22 +67,38 @@ func main() {
 
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	router.GET("/health", func(c *gin.Context) {
-		c.String(http.StatusOK, "Consul check")
+		c.JSON(http.StatusOK, gin.H{"message": "Consul check"})
 	})
 	router.POST("/run", func(c *gin.Context) {
-		/*var test load.Test
-		err := c.BindJSON(&test)*/
+		var testData map[string]interface{}
+		if err := c.ShouldBindJSON(&testData); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
 		var test load.Test
-		if err := c.BindJSON(&test); err != nil {
-			c.String(http.StatusBadRequest, err.Error())
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+			Result: &test,
+			DecodeHook: mapstructure.ComposeDecodeHookFunc(
+				unmarshalSyntaxRegexp,
+				unmarshalStandardRegexp,
+			),
+		})
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		if err := decoder.Decode(testData); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
 		if err := runTest(&test, runningTests, consulAgent); err != nil {
-			c.String(http.StatusInternalServerError, err.Error())
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			//processMiddlewareError(c, err)
 		} else {
-			c.String(http.StatusOK, "Тест запущен")
+			c.JSON(http.StatusOK, gin.H{"message": "Тест запущен"})
 			runningTests[test.Id] = &test
 		}
 	})
@@ -139,4 +162,30 @@ func sendEndTestRequestToMain(agent *consulapi.Agent, testId string) {
 	}
 
 	log.Info().Msg("Successfully sent end test request to main component")
+}
+
+func unmarshalSyntaxRegexp(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+	if to != reflect.TypeOf(&syntax.Regexp{}) {
+		return data, nil
+	}
+
+	regexString, ok := data.(string)
+	if !ok {
+		return nil, fmt.Errorf("can't read regex string from %v", data)
+	}
+
+	return syntax.Parse(regexString, syntax.Perl)
+}
+
+func unmarshalStandardRegexp(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+	if to != reflect.TypeOf(&regexp.Regexp{}) {
+		return data, nil
+	}
+
+	regexString, ok := data.(string)
+	if !ok {
+		return nil, fmt.Errorf("can't read regex string from %v", data)
+	}
+
+	return regexp.Compile(regexString)
 }
