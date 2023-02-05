@@ -61,7 +61,7 @@ func RegisterInConsul(port int) *Service {
 func (service *Service) SendEndTestRequestToMain(testId string) {
 	mainService, _, err := service.consulAgent.Service("ledokol-main", &consulapi.QueryOptions{})
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to find ledokol-main")
+		log.Error().Err(err).Str("testRunId", testId).Msg("Failed to find ledokol-main")
 		return
 	}
 
@@ -70,15 +70,15 @@ func (service *Service) SendEndTestRequestToMain(testId string) {
 	url := fmt.Sprintf("http://%s:%d/api/testruns/%s/end", address, port, testId)
 	response, err := http.Post(url, "application/json", &bytes.Buffer{})
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to send end test request to main component")
+		log.Error().Err(err).Str("testRunId", testId).Msg("Failed to send end test request to main component")
 		return
 	}
 	if response.StatusCode != 200 {
-		log.Info().Msgf("Status %d when send end test request to main component", response.StatusCode)
+		log.Error().Str("testRunId", testId).Msgf("Status %d when send end test request to main component", response.StatusCode)
 		return
 	}
 
-	log.Info().Msg("Successfully sent end test request to main component")
+	log.Info().Str("testRunId", testId).Msg("Successfully sent end test request to main component")
 }
 
 func (service *Service) DeregisterInConsul() {

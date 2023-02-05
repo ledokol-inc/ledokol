@@ -95,7 +95,6 @@ func main() {
 
 		if err := runTest(&test, runningTests, service); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			//processMiddlewareError(c, err)
 		} else {
 			c.JSON(http.StatusOK, gin.H{"message": "Тест запущен"})
 			runningTests[test.Id] = &test
