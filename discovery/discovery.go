@@ -1,18 +1,28 @@
 package discovery
 
 import (
+	"bytes"
 	"fmt"
 	consulapi "github.com/hashicorp/consul/api"
 	"github.com/rs/zerolog/log"
+	"net/http"
 	"os"
 )
 
 const serviceName = "generator"
 
-func RegisterInConsul(port int) (*consulapi.Agent, string) {
+type Service struct {
+	serviceId   string
+	consulAgent *consulapi.Agent
+}
 
+func RegisterInConsul(port int) *Service {
 	config := consulapi.DefaultConfig()
 	config.Address = os.Getenv("consul_server_address")
+	if config.Address == "" {
+		log.Info().Msg("Skip registration in consul")
+		return nil
+	}
 	consul, err := consulapi.NewClient(config)
 
 	if err != nil {
@@ -45,5 +55,33 @@ func RegisterInConsul(port int) (*consulapi.Agent, string) {
 	} else {
 		log.Info().Msgf("Successfully register service: %s:%v", address, port)
 	}
-	return consul.Agent(), serviceID
+	return &Service{serviceId: serviceID, consulAgent: consul.Agent()}
+}
+
+func (service *Service) SendEndTestRequestToMain(testId string) {
+	mainService, _, err := service.consulAgent.Service("ledokol-main", &consulapi.QueryOptions{})
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to find ledokol-main")
+		return
+	}
+
+	address := mainService.Address
+	port := mainService.Port
+	url := fmt.Sprintf("http://%s:%d/api/testruns/%s/end", address, port, testId)
+	response, err := http.Post(url, "application/json", &bytes.Buffer{})
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to send end test request to main component")
+		return
+	}
+	if response.StatusCode != 200 {
+		log.Info().Msgf("Status %d when send end test request to main component", response.StatusCode)
+		return
+	}
+
+	log.Info().Msg("Successfully sent end test request to main component")
+}
+
+func (service *Service) DeregisterInConsul() {
+	service.consulAgent.ServiceDeregister(service.serviceId)
+	log.Info().Msg("Service deregistered")
 }

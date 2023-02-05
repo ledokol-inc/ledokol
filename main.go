@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	consulapi "github.com/hashicorp/consul/api"
 	"github.com/mitchellh/mapstructure"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
@@ -54,14 +52,15 @@ func main() {
 		port = portDefault
 	}
 
-	consulAgent, serviceId := discovery.RegisterInConsul(port)
+	service := discovery.RegisterInConsul(port)
 
 	interruptChan := make(chan os.Signal)
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-interruptChan
-		consulAgent.ServiceDeregister(serviceId)
-		log.Info().Msg("Service deregistered")
+		if service != nil {
+			service.DeregisterInConsul()
+		}
 		os.Exit(1)
 	}()
 
@@ -94,7 +93,7 @@ func main() {
 			return
 		}
 
-		if err := runTest(&test, runningTests, consulAgent); err != nil {
+		if err := runTest(&test, runningTests, service); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			//processMiddlewareError(c, err)
 		} else {
@@ -116,14 +115,16 @@ func main() {
 	log.Fatal().Err(err).Msg("ListenAndServe() error")
 }
 
-func runTest(test *load.Test, runningTests map[string]*load.Test, agent *consulapi.Agent) error {
+func runTest(test *load.Test, runningTests map[string]*load.Test, service *discovery.Service) error {
 	test.PrepareTest()
 
 	go func(runningTests map[string]*load.Test, test *load.Test) {
 		test.Run()
 		if _, contains := runningTests[test.Id]; contains {
 			delete(runningTests, test.Id)
-			sendEndTestRequestToMain(agent, test.Id)
+			if service != nil {
+				service.SendEndTestRequestToMain(test.Id)
+			}
 		}
 	}(runningTests, test)
 
@@ -141,30 +142,7 @@ func stopTest(testId string, runningTests map[string]*load.Test) bool {
 	}
 }
 
-func sendEndTestRequestToMain(agent *consulapi.Agent, testId string) {
-	service, _, err := agent.Service("ledokol-main", &consulapi.QueryOptions{})
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to find ledokol-main")
-		return
-	}
-
-	address := service.Address
-	port := service.Port
-	url := fmt.Sprintf("http://%s:%d/api/testruns/%s/end", address, port, testId)
-	response, err := http.Post(url, "application/json", &bytes.Buffer{})
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to send end test request to main component")
-		return
-	}
-	if response.StatusCode != 200 {
-		log.Info().Msgf("Status %d when send end test request to main component", response.StatusCode)
-		return
-	}
-
-	log.Info().Msg("Successfully sent end test request to main component")
-}
-
-func unmarshalSyntaxRegexp(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+func unmarshalSyntaxRegexp(_ reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
 	if to != reflect.TypeOf(&syntax.Regexp{}) {
 		return data, nil
 	}
@@ -177,7 +155,7 @@ func unmarshalSyntaxRegexp(from reflect.Type, to reflect.Type, data interface{})
 	return syntax.Parse(regexString, syntax.Perl)
 }
 
-func unmarshalStandardRegexp(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+func unmarshalStandardRegexp(_ reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
 	if to != reflect.TypeOf(&regexp.Regexp{}) {
 		return data, nil
 	}
