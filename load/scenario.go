@@ -119,15 +119,15 @@ func (scenario *Scenario) StartUser(testName string, testRunId string) {
 	usersCountMetric.WithLabelValues(testName, scenario.Name).Inc()
 	user := CreateUser(scenario.Script)
 	for {
-		timeBeforeTest := time.Now().UnixMilli()
-		result, startIterationTime := scenario.Script.ProcessHttp(testName, testRunId, user)
+		timeBeforeIteration := time.Now().UnixMilli()
+		result := scenario.Script.ProcessHttp(testName, testRunId, user)
 		if result {
-			successScenarioCountMetric.WithLabelValues(testName, scenario.Name).Observe(float64(time.Now().UnixMilli()-startIterationTime) / 1000.0)
+			successScenarioCountMetric.WithLabelValues(testName, scenario.Name).Observe(float64(time.Now().UnixMilli()-timeBeforeIteration) / 1000.0)
 		} else {
 			failedScenarioCountMetric.WithLabelValues(testName, scenario.Name).Inc()
 		}
 		currentPacing := ((user.userRand.Float64()*2-1)*scenario.PacingDelta + 1) * scenario.Pacing
-		timeToSleep := int64(currentPacing*1000) - time.Now().UnixMilli() + timeBeforeTest
+		timeToSleep := int64(currentPacing*1000) - time.Now().UnixMilli() + timeBeforeIteration
 		if timeToSleep < 1 {
 			timeToSleep = 1
 		}

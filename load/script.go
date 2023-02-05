@@ -33,14 +33,11 @@ type Step struct {
 	Timeout    int64
 }
 
-func (script *Script) ProcessHttp(testName string, testRunId string, user *User) (bool, int64) {
+func (script *Script) ProcessHttp(testName string, testRunId string, user *User) bool {
 	success := true
-	startIterationTime := time.Now().UnixMilli()
 	iter := script.prepareIteration(user, testRunId)
 
 	for _, step := range script.Steps {
-		startTime := time.Now().UnixMilli()
-
 		var req *http.Request
 		var err error
 
@@ -62,11 +59,11 @@ func (script *Script) ProcessHttp(testName string, testRunId string, user *User)
 		}
 
 		requestId := randomId(user.userRand, requestIdLength)
-
-		resp, err := step.httpClient.Do(req)
-
 		beginLogInScript(false, nil, iter, step.Name).
 			Str("body", resultMessage).Str("requestId", requestId).Msg("Отправка запроса")
+
+		startTime := time.Now().UnixMilli()
+		resp, err := step.httpClient.Do(req)
 
 		if err != nil || resp.StatusCode >= 300 {
 			failedTransactionCountMetric.WithLabelValues(testName, script.Name, step.Name, "true").Inc()
@@ -96,7 +93,7 @@ func (script *Script) ProcessHttp(testName string, testRunId string, user *User)
 		}
 	}
 
-	return success, startIterationTime
+	return success
 }
 
 func (script *Script) prepareIteration(user *User, testRunId string) *iteration {
