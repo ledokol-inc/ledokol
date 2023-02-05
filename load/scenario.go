@@ -1,7 +1,6 @@
 package load
 
 import (
-	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -42,26 +41,26 @@ func (scenario *Scenario) PrepareScenario(totalDuration float64) {
 	scenario.runningUserWait = &sync.WaitGroup{}
 }
 
-func (scenario *Scenario) StartUsersContinually(totalCount int, countByPeriod int, periodInMillis int, testName string) {
+func (scenario *Scenario) StartUsersContinually(totalCount int, countByPeriod int, periodInMillis int, testName string, testRunId string) {
 	for i := 0; i < totalCount; i += countByPeriod {
-		scenario.StartUsers(countByPeriod, testName)
+		scenario.StartUsers(countByPeriod, testName, testRunId)
 		time.Sleep(time.Duration(periodInMillis) * time.Millisecond)
 	}
 }
 
-func (scenario *Scenario) StartUsers(count int, testName string) {
+func (scenario *Scenario) StartUsers(count int, testName string, testRunId string) {
 	for i := 0; i < count; i++ {
 		go func() {
 			if !scenario.stopped.Load() {
 				scenario.runningUserWait.Add(1)
-				scenario.StartUser(testName)
+				scenario.StartUser(testName, testRunId)
 				scenario.runningUserWait.Done()
 			}
 		}()
 	}
 }
 
-func (scenario *Scenario) Run(testName string) int64 {
+func (scenario *Scenario) Run(testName string, testRunId string) int64 {
 	startTime := time.Now().Unix()
 
 	for _, step := range scenario.Steps {
@@ -71,7 +70,7 @@ func (scenario *Scenario) Run(testName string) int64 {
 		}
 
 		if step.Action == "start" {
-			scenario.StartUsersContinually(step.TotalUsersCount, step.CountUsersByPeriod, int(step.Period*1000), testName)
+			scenario.StartUsersContinually(step.TotalUsersCount, step.CountUsersByPeriod, int(step.Period*1000), testName, testRunId)
 		} else if step.Action == "duration" {
 			select {
 			case _ = <-scenario.stopScenarioChannel:
@@ -116,19 +115,18 @@ func (scenario *Scenario) StopUsersContinually(totalCount int, countByPeriod int
 	stopUsersDone.Wait()
 }
 
-func (scenario *Scenario) StartUser(testName string) {
-	userRand := initRand()
+func (scenario *Scenario) StartUser(testName string, testRunId string) {
 	usersCountMetric.WithLabelValues(testName, scenario.Name).Inc()
-	scriptVariables := scenario.Script.PrepareScript(userRand)
+	user := CreateUser(scenario.Script)
 	for {
 		timeBeforeTest := time.Now().UnixMilli()
-		result, startIterationTime := scenario.Script.ProcessHttp(testName, userRand, scriptVariables)
+		result, startIterationTime := scenario.Script.ProcessHttp(testName, testRunId, user)
 		if result {
 			successScenarioCountMetric.WithLabelValues(testName, scenario.Name).Observe(float64(time.Now().UnixMilli()-startIterationTime) / 1000.0)
 		} else {
 			failedScenarioCountMetric.WithLabelValues(testName, scenario.Name).Inc()
 		}
-		currentPacing := ((userRand.Float64()*2-1)*scenario.PacingDelta + 1) * scenario.Pacing
+		currentPacing := ((user.userRand.Float64()*2-1)*scenario.PacingDelta + 1) * scenario.Pacing
 		timeToSleep := int64(currentPacing*1000) - time.Now().UnixMilli() + timeBeforeTest
 		if timeToSleep < 1 {
 			timeToSleep = 1
@@ -148,8 +146,4 @@ func (scenario *Scenario) Stop() {
 		scenario.stopScenarioChannel <- struct{}{}
 		close(scenario.stopScenarioChannel)
 	}
-}
-
-func initRand() *rand.Rand {
-	return rand.New(rand.NewSource(rand.Int63()))
 }

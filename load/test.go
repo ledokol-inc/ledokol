@@ -28,10 +28,10 @@ func (test *Test) Run() {
 	testWait := &sync.WaitGroup{}
 	for i := range test.Scenarios {
 		testWait.Add(1)
-		go func(scenario *Scenario, testName string) {
-			scenario.Run(testName)
+		go func(scenario *Scenario, testName string, testRunId string) {
+			scenario.Run(testName, testRunId)
 			testWait.Done()
-		}(test.Scenarios[i], test.Name)
+		}(test.Scenarios[i], test.Name, test.Id)
 	}
 	testWait.Wait()
 }
