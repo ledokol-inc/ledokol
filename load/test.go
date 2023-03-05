@@ -7,15 +7,19 @@ import (
 )
 
 type Test struct {
-	Name          string
-	Scenarios     []*Scenario
+	Name      string
+	Scenarios []*Scenario
+	Id        string
+	Options   *TestOptions
+}
+
+type TestOptions struct {
 	TotalDuration float64
-	Id            string
 }
 
 func (test *Test) PrepareTest() {
 	for i := range test.Scenarios {
-		test.Scenarios[i].PrepareScenario(test.TotalDuration)
+		test.Scenarios[i].PrepareScenario(test.Options.TotalDuration)
 		for _, step := range test.Scenarios[i].Script.Steps {
 			step.httpClient = &http.Client{
 				Timeout: time.Duration(step.Timeout) * time.Millisecond,
@@ -42,4 +46,8 @@ func (test *Test) Stop() {
 			scenario.Stop()
 		}(test.Scenarios[i])
 	}
+}
+
+func (test *Test) SetOptions(options *TestOptions) {
+	test.Options = options
 }

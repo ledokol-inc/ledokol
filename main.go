@@ -74,7 +74,7 @@ func main() {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-
+		var options load.TestOptions
 		var test load.Test
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 			Result: &test,
@@ -88,10 +88,17 @@ func main() {
 			return
 		}
 
-		if err := decoder.Decode(testData); err != nil {
+		if err := decoder.Decode(testData["test"]); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+
+		if err := mapstructure.Decode(testData["options"], &options); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		test.SetOptions(&options)
 
 		if err := runTest(&test, runningTests, service); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

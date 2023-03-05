@@ -6,6 +6,14 @@ import (
 	"time"
 )
 
+type StepAction string
+
+const (
+	StartAction    StepAction = "start"
+	DurationAction            = "duration"
+	StopAction                = "stop"
+)
+
 type Scenario struct {
 	Name                string
 	stopUserChannel     chan bool
@@ -19,21 +27,33 @@ type Scenario struct {
 }
 
 type ScenarioStep struct {
-	Action             string
+	Action             StepAction
 	TotalUsersCount    int
 	CountUsersByPeriod int
 	Period             float64
 }
 
 func (scenario *Scenario) PrepareScenario(totalDuration float64) {
-	sumTimeBefore := 0.0
-	for i := 0; i < len(scenario.Steps); i++ {
-		if sumTimeBefore+scenario.Steps[i].Period > totalDuration {
-			scenario.Steps[i].Period = totalDuration - sumTimeBefore
-			scenario.Steps = scenario.Steps[:i+1]
-			break
+	if totalDuration != 0 {
+		sumTimeBefore := 0.0
+		for i := 0; i < len(scenario.Steps); i++ {
+			if scenario.Steps[i].Action == DurationAction && sumTimeBefore+scenario.Steps[i].Period > totalDuration {
+				scenario.Steps[i].Period = totalDuration - sumTimeBefore
+				scenario.Steps = scenario.Steps[:i+1]
+				break
+			} else if scenario.Steps[i].Action != DurationAction {
+				lastPeriodCoeff := 0
+				if scenario.Steps[i].TotalUsersCount%scenario.Steps[i].CountUsersByPeriod != 0 {
+					lastPeriodCoeff++
+				}
+				if sumTimeBefore+scenario.Steps[i].Period*
+					float64(scenario.Steps[i].TotalUsersCount/scenario.Steps[i].CountUsersByPeriod+lastPeriodCoeff) > totalDuration {
+					delta := totalDuration - sumTimeBefore
+					scenario.Steps[i].TotalUsersCount = int(delta/scenario.Steps[i].Period) * scenario.Steps[i].CountUsersByPeriod
+				}
+			}
+			sumTimeBefore += scenario.Steps[i].Period
 		}
-		sumTimeBefore += scenario.Steps[i].Period
 	}
 
 	scenario.stopUserChannel = make(chan bool)
@@ -69,9 +89,9 @@ func (scenario *Scenario) Run(testName string, testRunId string) int64 {
 			break
 		}
 
-		if step.Action == "start" {
+		if step.Action == StartAction {
 			scenario.StartUsersContinually(step.TotalUsersCount, step.CountUsersByPeriod, int(step.Period*1000), testName, testRunId)
-		} else if step.Action == "duration" {
+		} else if step.Action == DurationAction {
 			select {
 			case _ = <-scenario.stopScenarioChannel:
 				continue
@@ -79,7 +99,7 @@ func (scenario *Scenario) Run(testName string, testRunId string) int64 {
 				continue
 			}
 
-		} else if step.Action == "stop" {
+		} else if step.Action == StopAction {
 			scenario.StopUsersContinually(step.TotalUsersCount, step.CountUsersByPeriod, int(step.Period*1000))
 		}
 	}
