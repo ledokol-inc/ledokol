@@ -16,7 +16,7 @@ const (
 
 type Scenario struct {
 	Name                string
-	stopUserChannel     chan bool
+	stopUserChannel     chan struct{}
 	Steps               []ScenarioStep
 	Pacing              float64
 	PacingDelta         float64
@@ -56,7 +56,7 @@ func (scenario *Scenario) PrepareScenario(totalDuration float64) {
 		}
 	}
 
-	scenario.stopUserChannel = make(chan bool)
+	scenario.stopUserChannel = make(chan struct{})
 	scenario.stopScenarioChannel = make(chan struct{})
 	scenario.runningUserWait = &sync.WaitGroup{}
 }
@@ -125,7 +125,7 @@ func (scenario *Scenario) StopUsersContinually(totalCount int, countByPeriod int
 		stopUsersDone.Add(countByPeriod)
 		go func() {
 			for j := 0; j < countByPeriod; j++ {
-				scenario.stopUserChannel <- true
+				scenario.stopUserChannel <- struct{}{}
 				stopUsersDone.Done()
 			}
 		}()

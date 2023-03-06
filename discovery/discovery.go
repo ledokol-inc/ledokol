@@ -67,7 +67,7 @@ func (service *Service) SendEndTestRequestToMain(testId string) {
 
 	address := mainService.Address
 	port := mainService.Port
-	url := fmt.Sprintf("http://%s:%d/api/testruns/%s/end", address, port, testId)
+	url := fmt.Sprintf("http://%s:%d/api/testruns/%s?action=END", address, port, testId)
 	response, err := http.Post(url, "application/json", &bytes.Buffer{})
 	if err != nil {
 		log.Error().Err(err).Str("testRunId", testId).Msg("Failed to send end test request to main component")
