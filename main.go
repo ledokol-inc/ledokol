@@ -7,6 +7,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"ledokol/discovery"
 	"ledokol/load"
@@ -18,39 +19,59 @@ import (
 	"reflect"
 	"regexp"
 	"regexp/syntax"
-	"strconv"
 	"syscall"
 	"time"
 )
 
 const portDefault = 1455
-const logFile = "./logs/server.log"
+const defaultLogLevel = "info"
 
 func main() {
 
 	rand.Seed(time.Now().UnixNano())
 	runningTests := make(map[string]*load.Test)
 
-	fileLogger := &lumberjack.Logger{
-		Filename:   logFile,
-		MaxSize:    5,
-		MaxBackups: 10,
-		MaxAge:     14,
-		Compress:   true,
+	viper.SetConfigFile("config.yaml")
+	err := viper.ReadInConfig()
+	if err != nil {
+		panic(fmt.Errorf("Не удалось инициализировать конфигурацию\n %w", err))
+		return
 	}
 
-	zerolog.TimeFieldFormat = "2006-01-02 15:04:05.000"
-	log.Logger = log.Output(zerolog.MultiLevelWriter(os.Stderr, fileLogger))
+	viper.SetDefault("logging.level", defaultLogLevel)
+	_ = viper.BindEnv("logging.level", "log-level")
+
+	loggingLevel := viper.GetString("logging.level")
+	fileLogger := &lumberjack.Logger{
+		Filename:   viper.GetString("logging.file"),
+		MaxSize:    viper.GetInt("logging.max-file-size"),
+		MaxBackups: viper.GetInt("logging.max-backups"),
+		MaxAge:     viper.GetInt("logging.max-age"),
+		Compress:   viper.GetBool("logging.compress-rotated-log"),
+	}
+	level, err := zerolog.ParseLevel(loggingLevel)
+	if err != nil {
+		level = zerolog.InfoLevel
+	}
+	zerolog.SetGlobalLevel(level)
+	zerolog.TimeFieldFormat = viper.GetString("logging.time-format")
+
+	standardOutput := viper.GetString("logging.standard-output")
+	if standardOutput == "stderr" {
+		log.Logger = log.Output(zerolog.MultiLevelWriter(os.Stderr, fileLogger))
+	} else if standardOutput == "stdout" {
+		log.Logger = log.Output(zerolog.MultiLevelWriter(os.Stdout, fileLogger))
+	} else {
+		log.Logger = log.Output(zerolog.MultiLevelWriter(fileLogger))
+	}
 
 	router := gin.New()
 	router.Use(logger.Logger())
 
-	port, err := strconv.Atoi(os.Getenv("http_port"))
+	viper.SetDefault("server.http-port", portDefault)
+	_ = viper.BindEnv("server.http-port", "http_port")
 
-	if err != nil {
-		log.Info().Msgf("Переменная среды http_port не задана или задана неверно, используется порт по умолчанию: %d", portDefault)
-		port = portDefault
-	}
+	port := viper.GetInt("server.http-port")
 
 	service := discovery.RegisterInConsul(port)
 

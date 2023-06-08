@@ -7,9 +7,9 @@ import (
 )
 
 type Test struct {
+	Id        string
 	Name      string
 	Scenarios []*Scenario
-	Id        string
 	Options   *TestOptions
 }
 

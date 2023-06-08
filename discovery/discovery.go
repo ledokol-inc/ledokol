@@ -5,20 +5,22 @@ import (
 	"fmt"
 	consulapi "github.com/hashicorp/consul/api"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 	"net/http"
-	"os"
 )
 
-const serviceName = "generator"
+const defaultServiceName = "generator"
 
 type Service struct {
-	serviceId   string
-	consulAgent *consulapi.Agent
+	serviceId     string
+	consulAgent   *consulapi.Agent
+	mainServiceId string
 }
 
 func RegisterInConsul(port int) *Service {
 	config := consulapi.DefaultConfig()
-	config.Address = os.Getenv("consul_server_address")
+	_ = viper.BindEnv("consul.address", "consul_server_address")
+	config.Address = viper.GetString("consul.address")
 	if config.Address == "" {
 		log.Info().Msg("Skip registration in consul")
 		return nil
@@ -26,11 +28,17 @@ func RegisterInConsul(port int) *Service {
 	consul, err := consulapi.NewClient(config)
 
 	if err != nil {
-		log.Fatal().Err(err)
+		log.Fatal().Err(err).Msg("")
 	}
 
-	address := os.Getenv("HOSTNAME")
+	_ = viper.BindEnv("consul.generator-hostname", "HOSTNAME")
+	address := viper.GetString("consul.generator-hostname")
+	viper.SetDefault("consul.service-name", defaultServiceName)
+	serviceName := viper.GetString("consul.service-name")
 	serviceID := fmt.Sprintf("%s-%s-%d", serviceName, address, port)
+
+	viper.SetDefault("consul.check.interval", "15s")
+	viper.SetDefault("consul.check.timeout", "10s")
 
 	registration := &consulapi.AgentServiceRegistration{
 		ID:   serviceID,
@@ -38,10 +46,10 @@ func RegisterInConsul(port int) *Service {
 		Port: port,
 		Check: &consulapi.AgentServiceCheck{
 			HTTP:     fmt.Sprintf("http://%s:%d/health", address, port),
-			Interval: "15s",
-			Timeout:  "20s",
+			Interval: viper.GetString("consul.check.interval"),
+			Timeout:  viper.GetString("consul.check.timeout"),
 		},
-		Tags: []string{"prometheus_monitoring_endpoint=/metrics"},
+		Tags: viper.GetStringSlice("consul.tags"),
 	}
 
 	if address != "" {
@@ -55,11 +63,16 @@ func RegisterInConsul(port int) *Service {
 	} else {
 		log.Info().Msgf("Successfully register service: %s:%v", address, port)
 	}
-	return &Service{serviceId: serviceID, consulAgent: consul.Agent()}
+
+	viper.SetDefault("consul.main-service-id", "ledokol-main")
+
+	return &Service{serviceId: serviceID,
+		consulAgent:   consul.Agent(),
+		mainServiceId: viper.GetString("consul.main-service-id")}
 }
 
 func (service *Service) SendEndTestRequestToMain(testId string) {
-	mainService, _, err := service.consulAgent.Service("ledokol-main", &consulapi.QueryOptions{})
+	mainService, _, err := service.consulAgent.Service(service.mainServiceId, &consulapi.QueryOptions{})
 	if err != nil {
 		log.Error().Err(err).Str("testRunId", testId).Msg("Failed to find ledokol-main")
 		return

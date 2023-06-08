@@ -4,5 +4,4 @@ WORKDIR /app
 
 COPY output/ledokol .
 
-# run the service on container startup.
 CMD ["/app/ledokol"]
