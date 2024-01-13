@@ -3,16 +3,18 @@ package load
 import (
 	"bytes"
 	"encoding/base64"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"io"
-	"ledokol/load/variables"
 	"math/rand"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+
+	"ledokol/load/variables"
 )
 
 const requestIdLength = 15

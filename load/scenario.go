@@ -10,8 +10,8 @@ type StepAction string
 
 const (
 	StartAction    StepAction = "start"
-	DurationAction            = "duration"
-	StopAction                = "stop"
+	DurationAction StepAction = "duration"
+	StopAction     StepAction = "stop"
 )
 
 type Scenario struct {
@@ -93,7 +93,7 @@ func (scenario *Scenario) Run(testName string, testRunId string) int64 {
 			scenario.StartUsersContinually(step.TotalUsersCount, step.CountUsersByPeriod, int(step.Period*1000), testName, testRunId)
 		} else if step.Action == DurationAction {
 			select {
-			case _ = <-scenario.stopScenarioChannel:
+			case <-scenario.stopScenarioChannel:
 				continue
 			case <-time.After(time.Duration(step.Period*1000) * time.Millisecond):
 				continue
@@ -152,7 +152,7 @@ func (scenario *Scenario) StartUser(testName string, testRunId string) {
 			timeToSleep = 1
 		}
 		select {
-		case _ = <-scenario.stopUserChannel:
+		case <-scenario.stopUserChannel:
 			usersCountMetric.WithLabelValues(testName, scenario.Name).Dec()
 			return
 		case <-time.After(time.Duration(timeToSleep) * time.Millisecond):

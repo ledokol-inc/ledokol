@@ -3,10 +3,11 @@ package discovery
 import (
 	"bytes"
 	"fmt"
+	"net/http"
+
 	consulapi "github.com/hashicorp/consul/api"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
-	"net/http"
 )
 
 const defaultServiceName = "generator"

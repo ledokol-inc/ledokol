@@ -2,16 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"github.com/mitchellh/mapstructure"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
-	"gopkg.in/natefinch/lumberjack.v2"
-	"ledokol/discovery"
-	"ledokol/load"
-	"ledokol/logger"
 	"math/rand"
 	"net/http"
 	"os"
@@ -21,6 +11,18 @@ import (
 	"regexp/syntax"
 	"syscall"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/mitchellh/mapstructure"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
+	"gopkg.in/natefinch/lumberjack.v2"
+
+	"ledokol/discovery"
+	"ledokol/load"
+	"ledokol/logger"
 )
 
 const portDefault = 1455
@@ -34,8 +36,7 @@ func main() {
 	viper.SetConfigFile("config.yaml")
 	err := viper.ReadInConfig()
 	if err != nil {
-		panic(fmt.Errorf("Не удалось инициализировать конфигурацию\n %w", err))
-		return
+		panic(fmt.Errorf("не удалось инициализировать конфигурацию\n %w", err))
 	}
 
 	viper.SetDefault("logging.level", defaultLogLevel)
@@ -75,7 +76,7 @@ func main() {
 
 	service := discovery.RegisterInConsul(port)
 
-	interruptChan := make(chan os.Signal)
+	interruptChan := make(chan os.Signal, 1)
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-interruptChan

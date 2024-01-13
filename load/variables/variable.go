@@ -1,10 +1,11 @@
 package variables
 
 import (
-	reggen "github.com/ledokol-inc/string-generation"
 	"math/rand"
 	"regexp"
 	"regexp/syntax"
+
+	reggen "github.com/ledokol-inc/string-generation"
 )
 
 const regexManyCharactersLimit = 10
@@ -13,8 +14,8 @@ type Scope string
 
 const (
 	IterationScope Scope = "iteration"
-	StepScope            = "step"
-	ScenarioScope        = "scenario"
+	StepScope      Scope = "step"
+	ScenarioScope  Scope = "scenario"
 )
 
 type Variable struct {

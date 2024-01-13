@@ -1,8 +1,9 @@
 package load
 
 import (
-	"ledokol/load/variables"
 	"math/rand"
+
+	"ledokol/load/variables"
 )
 
 const userIdLength = 15

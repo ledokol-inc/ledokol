@@ -4,3 +4,5 @@ target
 .idea
 res
 kafkah/config.go
+logs/
+output/
