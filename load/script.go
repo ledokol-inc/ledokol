@@ -14,7 +14,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"ledokol/load/variables"
+	"github.com/ledokol-inc/ledokol/load/variables"
 )
 
 const requestIdLength = 15

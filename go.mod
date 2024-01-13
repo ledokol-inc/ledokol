@@ -1,4 +1,4 @@
-module ledokol
+module github.com/ledokol-inc/ledokol
 
 go 1.17
 

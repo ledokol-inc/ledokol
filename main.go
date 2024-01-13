@@ -20,9 +20,9 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/natefinch/lumberjack.v2"
 
-	"ledokol/discovery"
-	"ledokol/load"
-	"ledokol/logger"
+	"github.com/ledokol-inc/ledokol/discovery"
+	"github.com/ledokol-inc/ledokol/load"
+	"github.com/ledokol-inc/ledokol/logger"
 )
 
 const portDefault = 1455
