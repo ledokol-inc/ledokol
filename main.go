@@ -1,126 +1,196 @@
 package main
 
 import (
-	"errors"
+	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/mitchellh/mapstructure"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"io"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
+	"gopkg.in/natefinch/lumberjack.v2"
+	"ledokol/discovery"
 	"ledokol/load"
-	"ledokol/store"
-	"log"
+	"ledokol/logger"
+	"math/rand"
 	"net/http"
 	"os"
-	"strconv"
+	"os/signal"
+	"reflect"
+	"regexp"
+	"regexp/syntax"
+	"syscall"
 	"time"
 )
 
+const portDefault = 1455
+const defaultLogLevel = "info"
+
 func main() {
 
-	storeObj := store.NewFileStore("res")
+	rand.Seed(time.Now().UnixNano())
+	runningTests := make(map[string]*load.Test)
 
-	serverLogFile, _ := os.Create("server.log")
+	viper.SetConfigFile("config.yaml")
+	err := viper.ReadInConfig()
+	if err != nil {
+		panic(fmt.Errorf("Не удалось инициализировать конфигурацию\n %w", err))
+		return
+	}
 
-	gin.DefaultWriter = io.MultiWriter(serverLogFile, os.Stdout)
-	gin.DefaultErrorWriter = io.MultiWriter(serverLogFile, os.Stdout)
+	viper.SetDefault("logging.level", defaultLogLevel)
+	_ = viper.BindEnv("logging.level", "log-level")
 
-	router := gin.Default()
+	loggingLevel := viper.GetString("logging.level")
+	fileLogger := &lumberjack.Logger{
+		Filename:   viper.GetString("logging.file"),
+		MaxSize:    viper.GetInt("logging.max-file-size"),
+		MaxBackups: viper.GetInt("logging.max-backups"),
+		MaxAge:     viper.GetInt("logging.max-age"),
+		Compress:   viper.GetBool("logging.compress-rotated-log"),
+	}
+	level, err := zerolog.ParseLevel(loggingLevel)
+	if err != nil {
+		level = zerolog.InfoLevel
+	}
+	zerolog.SetGlobalLevel(level)
+	zerolog.TimeFieldFormat = viper.GetString("logging.time-format")
+
+	standardOutput := viper.GetString("logging.standard-output")
+	if standardOutput == "stderr" {
+		log.Logger = log.Output(zerolog.MultiLevelWriter(os.Stderr, fileLogger))
+	} else if standardOutput == "stdout" {
+		log.Logger = log.Output(zerolog.MultiLevelWriter(os.Stdout, fileLogger))
+	} else {
+		log.Logger = log.Output(zerolog.MultiLevelWriter(fileLogger))
+	}
+
+	router := gin.New()
+	router.Use(logger.Logger())
+
+	viper.SetDefault("server.http-port", portDefault)
+	_ = viper.BindEnv("server.http-port", "http_port")
+
+	port := viper.GetInt("server.http-port")
+
+	service := discovery.RegisterInConsul(port)
+
+	interruptChan := make(chan os.Signal)
+	signal.Notify(interruptChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-interruptChan
+		if service != nil {
+			service.DeregisterInConsul()
+		}
+		os.Exit(1)
+	}()
 
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
-	router.GET("/test/history", getAllTestsFromHistory(storeObj))
-	router.GET("/test/history/:id", getTestTimeFromHistory(storeObj))
-	router.POST("/test/catalog/:name", func(c *gin.Context) {
-		name := c.Param("name")
-		action := c.Query("action")
-		if action == "run" {
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "Consul check"})
+	})
+	router.POST("/run", func(c *gin.Context) {
+		var testData map[string]interface{}
+		if err := c.ShouldBindJSON(&testData); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		var options load.TestOptions
+		var test load.Test
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+			Result: &test,
+			DecodeHook: mapstructure.ComposeDecodeHookFunc(
+				unmarshalSyntaxRegexp,
+				unmarshalStandardRegexp,
+			),
+		})
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 
-			testId, err := runTest(name, storeObj)
+		if err := decoder.Decode(testData["test"]); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 
-			if err != nil {
-				processMiddlewareError(c, err)
-			} else {
-				c.String(http.StatusOK, "Тест запущен. ID теста - "+strconv.Itoa(testId))
-			}
-		} else if action == "stop" {
-			//TODO
+		if err := mapstructure.Decode(testData["options"], &options); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		test.SetOptions(&options)
+
+		if err := runTest(&test, runningTests, service); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(http.StatusOK, gin.H{"message": "Тест запущен"})
+			runningTests[test.Id] = &test
 		}
 	})
-	router.GET("/test/history/pc/:id", getPCCompatibleTestInfo(storeObj))
 
-	err := router.Run(":1454")
-	log.Fatalf("ListenAndServe(): %v", err)
-}
-
-func getPCCompatibleTestInfo(storeObj store.Store) gin.HandlerFunc {
-
-	return func(context *gin.Context) {
-		id := context.Param("id")
-
-		start, end, err := storeObj.FindTestTimeFromHistory(id)
-
-		processMiddlewareError(context, err)
-		context.String(http.StatusOK, "{\"dt_from\": \"%s\", \"dt_to\": \"%s\"}",
-			start.Format(load.TimeFormat),
-			end.Format(load.TimeFormat))
-	}
-}
-
-func getTestTimeFromHistory(storeObj store.Store) gin.HandlerFunc {
-
-	return func(context *gin.Context) {
-		id := context.Param("id")
-
-		start, end, err := storeObj.FindTestTimeFromHistory(id)
-
-		processMiddlewareError(context, err)
-		context.JSON(http.StatusOK, store.TestQuery{Id: id, StartTime: start.Format(load.TimeFormat),
-			EndTime: end.Format(load.TimeFormat)})
-	}
-}
-
-func getAllTestsFromHistory(storeObj store.Store) gin.HandlerFunc {
-
-	return func(context *gin.Context) {
-		tests, err := storeObj.FindAllTestsFromHistory()
-
-		processMiddlewareError(context, err)
-
-		context.JSON(http.StatusOK, tests)
-	}
-}
-
-func processMiddlewareError(context *gin.Context, err error) {
-	if err != nil {
-		var internalErr *store.InternalError
-		if errors.As(err, &internalErr) {
-			context.String(http.StatusInternalServerError, err.Error())
-			return
+	router.POST("/:id/stop", func(c *gin.Context) {
+		id := c.Param("id")
+		if stopTest(id, runningTests) {
+			c.String(http.StatusOK, "Остановка теста запущена")
+		} else {
+			c.String(http.StatusNotFound, "Тест с таким id не запущен")
 		}
-		var notFoundErr *store.NotFoundError
-		if errors.As(err, &notFoundErr) {
-			context.String(http.StatusNotFound, err.Error())
-			return
+	})
+
+	err = router.Run(fmt.Sprintf(":%d", port))
+	log.Fatal().Err(err).Msg("ListenAndServe() error")
+}
+
+func runTest(test *load.Test, runningTests map[string]*load.Test, service *discovery.Service) error {
+	test.PrepareTest()
+
+	go func(runningTests map[string]*load.Test, test *load.Test) {
+		test.Run()
+		if _, contains := runningTests[test.Id]; contains {
+			delete(runningTests, test.Id)
+			if service != nil {
+				service.SendEndTestRequestToMain(test.Id)
+			}
 		}
+	}(runningTests, test)
+
+	return nil
+}
+
+func stopTest(testId string, runningTests map[string]*load.Test) bool {
+	test, exist := runningTests[testId]
+	if exist {
+		delete(runningTests, testId)
+		test.Stop()
+		return true
+	} else {
+		return false
 	}
 }
 
-func runTest(name string, store store.Store) (int, error) {
-	test, err := store.FindTest(name)
-
-	if err != nil {
-		return 0, err
+func unmarshalSyntaxRegexp(_ reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+	if to != reflect.TypeOf(&syntax.Regexp{}) {
+		return data, nil
 	}
 
-	load.PrepareTest(test)
-
-	testId, err := store.FindNextTestId()
-
-	if err != nil {
-		return 0, err
+	regexString, ok := data.(string)
+	if !ok {
+		return nil, fmt.Errorf("can't read regex string from %v", data)
 	}
-	go func(testId int) {
-		startTime := test.Run(testId)
-		store.InsertTest(testId, startTime, time.Now().Unix())
-	}(testId)
 
-	return testId, nil
+	return syntax.Parse(regexString, syntax.Perl)
+}
+
+func unmarshalStandardRegexp(_ reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+	if to != reflect.TypeOf(&regexp.Regexp{}) {
+		return data, nil
+	}
+
+	regexString, ok := data.(string)
+	if !ok {
+		return nil, fmt.Errorf("can't read regex string from %v", data)
+	}
+
+	return regexp.Compile(regexString)
 }

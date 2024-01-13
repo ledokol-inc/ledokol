@@ -1,0 +1,16 @@
+logging:
+  level: info
+  file: ./logs/server.log
+  max-file-size: 5
+  max-backups: 10
+  max-age: 14
+  compress-rotated-log: true
+  time-format: "2006-01-02 15:04:05.000"
+  standard-output: stderr
+consul:
+  address: localhost:8500
+  check:
+    interval: 15s
+    timeout: 10s
+  tags: ["prometheus_monitoring_endpoint=/metrics"]
+  main-service-id: ledokol-main

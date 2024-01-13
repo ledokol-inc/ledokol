@@ -1,97 +1,169 @@
 package load
 
 import (
-	"bytes"
-	"ledokol/kafkah"
-	"math/rand"
-	"net/http"
-	"strconv"
-	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
+type StepAction string
+
+const (
+	StartAction    StepAction = "start"
+	DurationAction            = "duration"
+	StopAction                = "stop"
+)
+
 type Scenario struct {
-	Name  string
-	Steps []*Step
+	Name                string
+	stopUserChannel     chan struct{}
+	Steps               []ScenarioStep
+	Pacing              float64
+	PacingDelta         float64
+	Script              *Script
+	stopScenarioChannel chan struct{}
+	stopped             atomic.Bool
+	runningUserWait     *sync.WaitGroup
 }
 
-func (scenario *Scenario) Process(producer *kafkah.ProducerWrapper, consumer *kafkah.ConsumerWrapper, testId string) {
-	userId := rand.Int63n(99999999) + 100000000
-	sessionId := rand.Int63n(99999999) + 100000000
-	success := true
-	startScenarioTime := time.Now().UnixMilli()
-	for i := 0; i < len(scenario.Steps); i++ {
-		messageId := userId + rand.Int63n(9999) + 10000
-		changedMessage := kafkah.ReplaceAll([]byte(scenario.Steps[i].Message), messageId, sessionId, userId)
-		startTime := time.Now().UnixMilli()
-		producer.SendMessage([]byte(changedMessage))
-		//fmt.Printf("Сценарий %s, Шаг %s: сообщение отправлено, message id = %d\n", scenarioName, step.Name, messageId)
-		//currentTime := time.Now().UnixMilli()
+type ScenarioStep struct {
+	Action             StepAction
+	TotalUsersCount    int
+	CountUsersByPeriod int
+	Period             float64
+}
 
-		response := consumer.WaitForMessage(strconv.FormatInt(messageId, 10), 8000)
-
-		//fmt.Printf("Сценарий %s, Шаг %s: ", scenarioName, step.Name)
-		if response == "" {
-			failedTransactionCountMetric.WithLabelValues(testId, scenario.Name, scenario.Steps[i].Name, "true").Inc()
-			success = false
-			break
-			//fmt.Printf("Прошло 8 секунд, сообщения не было\n")
-		} else {
-			containsFinished := strings.Contains(response, "\"finished\": true")
-			isEnded := i == len(scenario.Steps)-1
-			if !isEnded && containsFinished || isEnded && !containsFinished {
-				failedTransactionCountMetric.WithLabelValues(testId, scenario.Name, scenario.Steps[i].Name, "false").Inc()
-				success = false
+func (scenario *Scenario) PrepareScenario(totalDuration float64) {
+	if totalDuration != 0 {
+		sumTimeBefore := 0.0
+		for i := 0; i < len(scenario.Steps); i++ {
+			if scenario.Steps[i].Action == DurationAction && sumTimeBefore+scenario.Steps[i].Period > totalDuration {
+				scenario.Steps[i].Period = totalDuration - sumTimeBefore
+				scenario.Steps = scenario.Steps[:i+1]
 				break
-			} else {
-				successTransactionCountMetric.WithLabelValues(testId, scenario.Name, scenario.Steps[i].Name).
-					Observe(float64(time.Now().UnixMilli()-startTime) / 1000.0)
+			} else if scenario.Steps[i].Action != DurationAction {
+				lastPeriodCoeff := 0
+				if scenario.Steps[i].TotalUsersCount%scenario.Steps[i].CountUsersByPeriod != 0 {
+					lastPeriodCoeff++
+				}
+				if sumTimeBefore+scenario.Steps[i].Period*
+					float64(scenario.Steps[i].TotalUsersCount/scenario.Steps[i].CountUsersByPeriod+lastPeriodCoeff) > totalDuration {
+					delta := totalDuration - sumTimeBefore
+					scenario.Steps[i].TotalUsersCount = int(delta/scenario.Steps[i].Period) * scenario.Steps[i].CountUsersByPeriod
+				}
 			}
-			//fmt.Printf("Сообщение получено за %d мс\n", time.Now().UnixMilli()-currentTime)
+			sumTimeBefore += scenario.Steps[i].Period
 		}
 	}
-	if success {
-		successScenarioCountMetric.WithLabelValues(testId, scenario.Name).Observe(float64(time.Now().UnixMilli()-startScenarioTime) / 1000.0)
-	} else {
-		failedScenarioCountMetric.WithLabelValues(testId, scenario.Name).Inc()
-	}
-	//fmt.Println("Итерация закончена")
+
+	scenario.stopUserChannel = make(chan struct{})
+	scenario.stopScenarioChannel = make(chan struct{})
+	scenario.runningUserWait = &sync.WaitGroup{}
 }
 
-func (scenario *Scenario) ProcessHttp(testId string) {
-	success := true
-	startScenarioTime := time.Now().UnixMilli()
-	for i := 0; i < len(scenario.Steps); i++ {
-		startTime := time.Now().UnixMilli()
-		resp, err := http.Post(scenario.Steps[i].Url, "application/json", bytes.NewBufferString(scenario.Steps[i].Message))
-		//fmt.Printf("Сценарий %s, Шаг %s: сообщение отправлено, message id = %d\n", scenarioName, step.Name, messageId)
-		//currentTime := time.Now().UnixMilli()
+func (scenario *Scenario) StartUsersContinually(totalCount int, countByPeriod int, periodInMillis int, testName string, testRunId string) {
+	for i := 0; i < totalCount; i += countByPeriod {
+		scenario.StartUsers(countByPeriod, testName, testRunId)
+		time.Sleep(time.Duration(periodInMillis) * time.Millisecond)
+	}
+}
 
-		//fmt.Printf("Сценарий %s, Шаг %s: ", scenarioName, step.Name)
-		if err != nil {
-			failedTransactionCountMetric.WithLabelValues(testId, scenario.Name, scenario.Steps[i].Name, "true").Inc()
-			success = false
-			println(err.Error())
+func (scenario *Scenario) StartUsers(count int, testName string, testRunId string) {
+	for i := 0; i < count; i++ {
+		go func() {
+			if !scenario.stopped.Load() {
+				scenario.runningUserWait.Add(1)
+				scenario.StartUser(testName, testRunId)
+				scenario.runningUserWait.Done()
+			}
+		}()
+	}
+}
+
+func (scenario *Scenario) Run(testName string, testRunId string) int64 {
+	startTime := time.Now().Unix()
+
+	for _, step := range scenario.Steps {
+
+		if scenario.stopped.Load() {
 			break
-			//fmt.Printf("Прошло 8 секунд, сообщения не было\n")
-		} else {
-			successTransactionCountMetric.WithLabelValues(testId, scenario.Name, scenario.Steps[i].Name).
-				Observe(float64(time.Now().UnixMilli()-startTime) / 1000.0)
-			resp.Body.Close()
-			//fmt.Printf("Сообщение получено за %d мс\n", time.Now().UnixMilli()-currentTime)
+		}
+
+		if step.Action == StartAction {
+			scenario.StartUsersContinually(step.TotalUsersCount, step.CountUsersByPeriod, int(step.Period*1000), testName, testRunId)
+		} else if step.Action == DurationAction {
+			select {
+			case _ = <-scenario.stopScenarioChannel:
+				continue
+			case <-time.After(time.Duration(step.Period*1000) * time.Millisecond):
+				continue
+			}
+
+		} else if step.Action == StopAction {
+			scenario.StopUsersContinually(step.TotalUsersCount, step.CountUsersByPeriod, int(step.Period*1000))
 		}
 	}
-	if success {
-		successScenarioCountMetric.WithLabelValues(testId, scenario.Name).Observe(float64(time.Now().UnixMilli()-startScenarioTime) / 1000.0)
-	} else {
-		failedScenarioCountMetric.WithLabelValues(testId, scenario.Name).Inc()
+
+	close(scenario.stopUserChannel)
+
+	if !scenario.stopped.CompareAndSwap(false, true) {
+		<-scenario.stopScenarioChannel
 	}
-	//fmt.Println("Итерация закончена")
+
+	scenario.runningUserWait.Wait()
+
+	return startTime
 }
 
-type Step struct {
-	Name     string
-	FileName string
-	Message  string `json:"body"`
-	Url      string
+func (scenario *Scenario) StopUsersContinually(totalCount int, countByPeriod int, periodInMillis int) {
+	stopUsersDone := &sync.WaitGroup{}
+	for i := 0; i < totalCount; i += countByPeriod {
+		if scenario.stopped.Load() {
+			break
+		}
+
+		stopUsersDone.Add(countByPeriod)
+		go func() {
+			for j := 0; j < countByPeriod; j++ {
+				scenario.stopUserChannel <- struct{}{}
+				stopUsersDone.Done()
+			}
+		}()
+
+		time.Sleep(time.Duration(periodInMillis) * time.Millisecond)
+	}
+	stopUsersDone.Wait()
+}
+
+func (scenario *Scenario) StartUser(testName string, testRunId string) {
+	usersCountMetric.WithLabelValues(testName, scenario.Name).Inc()
+	user := CreateUser(scenario.Script)
+	for {
+		timeBeforeIteration := time.Now().UnixMilli()
+		result := scenario.Script.ProcessHttp(testName, testRunId, user)
+		if result {
+			successScenarioCountMetric.WithLabelValues(testName, scenario.Name).Observe(float64(time.Now().UnixMilli()-timeBeforeIteration) / 1000.0)
+		} else {
+			failedScenarioCountMetric.WithLabelValues(testName, scenario.Name).Inc()
+		}
+		currentPacing := ((user.userRand.Float64()*2-1)*scenario.PacingDelta + 1) * scenario.Pacing
+		timeToSleep := int64(currentPacing*1000) - time.Now().UnixMilli() + timeBeforeIteration
+		if timeToSleep < 1 {
+			timeToSleep = 1
+		}
+		select {
+		case _ = <-scenario.stopUserChannel:
+			usersCountMetric.WithLabelValues(testName, scenario.Name).Dec()
+			return
+		case <-time.After(time.Duration(timeToSleep) * time.Millisecond):
+			continue
+		}
+	}
+}
+
+func (scenario *Scenario) Stop() {
+	if scenario.stopped.CompareAndSwap(false, true) {
+		scenario.stopScenarioChannel <- struct{}{}
+		close(scenario.stopScenarioChannel)
+	}
 }
