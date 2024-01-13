@@ -1,10 +1,11 @@
 package logger
 
 import (
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"time"
 )
 
 type ginHands struct {
